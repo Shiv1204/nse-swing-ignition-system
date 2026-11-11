@@ -81,3 +81,16 @@ The ranking weights are trend (20), momentum (15), ADX/DI strength (10), relativ
 The batch endpoint accepts one daily OHLCV history per symbol (at least 210 bars), sorts results by ranking score, reports each setup's pass/fail status, and returns per-symbol errors for invalid histories.
 
 These are heuristic research scores, not probabilities of profit. No broker connection or live trading is enabled.
+
+
+### Historical backtesting (research prototype)
+
+- `POST /api/v1/backtest` — backtest one scanner setup across up to 50 symbols already stored in SQLite.
+- Example body: `{"symbols":["RELIANCE","TCS"],"setup":"momentum","target_pct":5,"stop_atr_multiple":1.5,"max_holding_sessions":10,"cost_bps_per_side":10}`.
+- Signals are evaluated using the completed daily candle; entry is the next session open. The ATR stop is based on the signal-day ATR and fixed relative to entry. The default profit target is 5%; change it to test other objectives in the 3–8% range.
+- A trade exits at stop, target, or the close of the maximum holding session. If stop and target are both touched on one daily candle, stop is assumed first. A gap below the stop exits at the opening price.
+- Costs are modeled as configurable basis points per side (default 10 bps each side); this is a placeholder, not a complete India-specific brokerage, STT, exchange, GST, stamp-duty and slippage model. Replace with actual broker/segment charges before relying on results.
+- Metrics include win rate, average net return, average R, profit factor, expectancy R, trade-sequence drawdown and compounded return. Overlapping positions for the same symbol/setup are skipped until the prior trade exits.
+- This first version evaluates each setup independently and uses the stored adjusted OHLCV data. It does not yet implement portfolio-level capital allocation, concurrent position limits, benchmark comparison, walk-forward optimization, delisted-symbol coverage, point-in-time universe membership, or a complete corporate-action validation process.
+
+**Important:** A backtest result is not evidence that the strategy achieves its target. The NSE 500 CSV remains an empty template until populated from a verified dated source; do not run a claimed NSE 500 historical study with today's constituents substituted for historical membership. Yahoo Finance is an unofficial prototype data source. Validate the data and costs independently, and do not enable live trading based on these prototype results.
