@@ -21,3 +21,6 @@ build/
 .vscode/
 .next/
 node_modules/
+data/*.db
+data/*.db-shm
+data/*.db-wal
