@@ -43,3 +43,33 @@ def test_indicator_endpoint_rejects_invalid_timeframe() -> None:
         "bars": [],
     })
     assert response.status_code == 422
+
+
+def test_ranking_endpoint_returns_100_point_breakdown() -> None:
+    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    bars = []
+    for index in range(220):
+        close = 100 + index * 0.2
+        bars.append({
+            "timestamp": (start + timedelta(days=index)).isoformat(),
+            "open": close - 0.2,
+            "high": close + 1,
+            "low": close - 1,
+            "close": close,
+            "volume": 200_000,
+        })
+
+    response = client.post("/api/v1/rank", json={
+        "symbol": "reliance",
+        "timeframe": "1d",
+        "bars": bars,
+        "sector_relative_strength_pct": 2.0,
+    })
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["symbol"] == "RELIANCE"
+    assert body["max_score"] == 100
+    assert body["data_completeness"] == 100
+    assert sum(body["category_scores"].values()) == body["score"]
+    assert "trend" in body["category_scores"]
