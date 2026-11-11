@@ -6,11 +6,14 @@ from backend.app.indicators import calculate_indicators
 from backend.app.market_data import MarketDataStore
 from backend.app.scanners import run_scanner
 from backend.app.scoring import rank_stock
+from backend.app.universe import load_universe
+from backend.app.yahoo_finance import YahooFinanceProvider
 from backend.app.schemas import (
     IndicatorRequest,
     OHLCVImportRequest,
     RankingRequest,
     UniverseScanRequest,
+    YahooBatchSyncRequest,
 )
 
 settings = get_settings()
@@ -117,6 +120,64 @@ def sync_yahoo_market_data(
         "bars_received": len(bars),
         **result,
         "note": "Yahoo adjusted historical data is for research; verify quality and rights before operational use.",
+    }
+
+
+
+
+@app.get("/api/v1/universe", tags=["universe"])
+def read_universe() -> dict:
+    """Return the configured, provenance-checked constituent universe."""
+    try:
+        return load_universe()
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/api/v1/market-data/sync-universe", tags=["market-data"])
+def sync_yahoo_universe(request: YahooBatchSyncRequest) -> dict:
+    """Sync at most 50 symbols per request to limit provider load and rate risk."""
+    if request.symbols is None:
+        try:
+            constituents = load_universe()["constituents"]
+            symbols = [item["symbol"] for item in constituents]
+        except (ValueError, FileNotFoundError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+    else:
+        symbols = [symbol.strip().upper() for symbol in request.symbols]
+
+    if not symbols:
+        raise HTTPException(status_code=422, detail="At least one symbol is required.")
+    if len(symbols) > 50:
+        raise HTTPException(status_code=422, detail="Sync is limited to 50 symbols per request.")
+
+    provider = YahooFinanceProvider()
+    store = get_market_data_store()
+    results = []
+    errors = []
+    for symbol in symbols:
+        try:
+            bars = provider.fetch_bars(symbol, request.timeframe, request.period)
+            counts = store.upsert_bars(
+                symbol, request.timeframe, bars, source="yahoo_finance_adjusted"
+            )
+            results.append({
+                "symbol": symbol,
+                "bars_received": len(bars),
+                **counts,
+            })
+        except (ValueError, RuntimeError) as exc:
+            errors.append({"symbol": symbol, "error": str(exc)})
+
+    return {
+        "provider": "yahoo_finance",
+        "timeframe": request.timeframe,
+        "symbols_requested": len(symbols),
+        "symbols_synced": len(results),
+        "symbols_failed": len(errors),
+        "results": results,
+        "errors": errors,
+        "note": "Run in small batches. Yahoo is an unofficial research-data source; requests may be throttled or unavailable.",
     }
 
 
