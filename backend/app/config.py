@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     api_v1_prefix: str = "/api/v1"
     log_level: str = "INFO"
+    database_path: str = "data/nsis_market_data.db"
 
     model_config = SettingsConfigDict(
         env_file=".env",
