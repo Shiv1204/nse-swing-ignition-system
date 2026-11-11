@@ -58,6 +58,17 @@ Install `yfinance` through `pip install -r requirements.txt`. The provider maps 
 
 The initial adapter supports daily and hourly candles. Four-hour bars are intentionally not synthesized yet because aggregation must respect NSE trading sessions and partial final candles. The Yahoo Finance library is an unofficial interface to Yahoo data; availability, coverage, adjustments, rate limits, terms, and redistribution rights can change. Validate imported candles against a trusted source before using them for performance claims or trade decisions. The provider is a prototype and is not a guaranteed real-time feed. Universe sync is deliberately limited to 50 symbols per request to reduce provider load and throttling risk. Repeat requests in batches to cover a 500-stock universe. The constituent CSV remains header-only until populated from the official Nifty 500 constituent download with its source and as-of date; the API rejects empty or unprovenanced lists. Official reference: https://www.nseindia.com/static/products-services/indices-nifty500-index. Historical membership must be maintained separately for point-in-time backtests. No scheduler is enabled.
 
+
+### Manual end-of-day pipeline
+
+- `POST /api/v1/pipeline/eod` — validate the configured dated universe, optionally sync daily candles, load stored history, calculate the 100-point ranking, run reversal/VCP-candidate/momentum scans, and return a ranked list plus a filtered shortlist.
+- Example body: `{"sync_market_data": false, "shortlist_limit": 30}`.
+- Set `sync_market_data` to `true` to fetch daily history sequentially from Yahoo Finance before scanning. The pipeline does not schedule itself; invoke it after the NSE session has closed.
+- A stock needs at least 210 daily candles. Stocks with missing/insufficient history are reported separately. The shortlist includes stocks with ranking score >=60 and at least one passing setup.
+- The endpoint returns all ranked stocks and the shortlist. Sector-relative-strength scoring remains unavailable until sector/benchmark histories are integrated.
+
+This is a manual research pipeline, not a scheduler or trade execution system. It does not guarantee that the latest Yahoo candle is a completed NSE session candle; inspect timestamps and validate source quality. Live orders remain disabled.
+
 ## Research endpoints
 
 - `POST /api/v1/indicators` — calculate indicators from supplied OHLCV bars.
