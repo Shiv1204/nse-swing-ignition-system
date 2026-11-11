@@ -94,3 +94,14 @@ These are heuristic research scores, not probabilities of profit. No broker conn
 - This first version evaluates each setup independently and uses the stored adjusted OHLCV data. It does not yet implement portfolio-level capital allocation, concurrent position limits, benchmark comparison, walk-forward optimization, delisted-symbol coverage, point-in-time universe membership, or a complete corporate-action validation process.
 
 **Important:** A backtest result is not evidence that the strategy achieves its target. The NSE 500 CSV remains an empty template until populated from a verified dated source; do not run a claimed NSE 500 historical study with today's constituents substituted for historical membership. Yahoo Finance is an unofficial prototype data source. Validate the data and costs independently, and do not enable live trading based on these prototype results.
+
+
+### Portfolio-level backtesting
+
+- `POST /api/v1/backtest/portfolio` — combines candidate trades across up to 50 symbols, then applies a shared capital pool.
+- Example: `{"symbols":["RELIANCE","TCS","INFY"],"setup":"momentum","initial_capital":1000000,"risk_per_trade_pct":0.5,"max_positions":5,"target_pct":5,"stop_atr_multiple":1.5,"max_holding_sessions":10,"cost_bps_per_side":10,"train_fraction":0.7}`.
+- Position quantity is the smaller of the risk-budget quantity (equity × risk percentage ÷ entry-to-stop distance) and the cash-affordable quantity. Fractional shares are not used. Entries are skipped when the position limit or available cash prevents an allocation.
+- The chronological holdout split is based on entry dates. Trades that cross the split boundary are excluded from both periods to avoid training-period positions leaking into the out-of-sample period. Train and out-of-sample portfolios each start with the configured initial capital.
+- The current drawdown is based on realized portfolio equity after exits, not a daily mark-to-market curve. Candidate signals are generated independently per symbol and then allocated in entry-date/symbol order; this version does not yet rank simultaneous candidates by signal quality.
+
+This is a first portfolio allocator, not a final performance simulator. Validate with realistic charges, slippage, point-in-time constituents and trusted adjusted data. It does not yet model taxes, corporate actions, market impact, liquidity limits or daily unrealized P&L.
