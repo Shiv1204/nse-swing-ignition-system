@@ -86,3 +86,22 @@ class EODPipelineRequest(BaseModel):
 
     sync_market_data: bool = False
     shortlist_limit: int = Field(default=30, ge=1, le=100)
+
+class BacktestRequest(BaseModel):
+    """Run a bounded historical backtest for one setup and stored symbols."""
+
+    symbols: list[str] = Field(min_length=1, max_length=50)
+    setup: Literal["reversal", "vcp", "momentum"]
+    target_pct: float = Field(default=5.0, gt=0, le=50)
+    stop_atr_multiple: float = Field(default=1.5, gt=0, le=10)
+    max_holding_sessions: int = Field(default=10, ge=1, le=30)
+    cost_bps_per_side: float = Field(default=10.0, ge=0, le=500)
+
+    @model_validator(mode="after")
+    def validate_unique_symbols(self):
+        normalized = [symbol.strip().upper() for symbol in self.symbols]
+        if any(not symbol for symbol in normalized):
+            raise ValueError("Symbols cannot be blank")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("Symbols must be unique")
+        return self
