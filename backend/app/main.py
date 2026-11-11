@@ -1,11 +1,17 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 import pandas as pd
 
 from backend.app.config import get_settings
 from backend.app.indicators import calculate_indicators
+from backend.app.market_data import MarketDataStore
 from backend.app.scanners import run_scanner
 from backend.app.scoring import rank_stock
-from backend.app.schemas import IndicatorRequest, RankingRequest, UniverseScanRequest
+from backend.app.schemas import (
+    IndicatorRequest,
+    OHLCVImportRequest,
+    RankingRequest,
+    UniverseScanRequest,
+)
 
 settings = get_settings()
 
@@ -17,6 +23,11 @@ app = FastAPI(
     ),
     version="0.1.0",
 )
+
+
+def get_market_data_store() -> MarketDataStore:
+    """Create a lightweight repository handle using the configured database path."""
+    return MarketDataStore(settings.database_path)
 
 
 @app.get("/", tags=["system"])
@@ -42,6 +53,40 @@ def _bars_to_frame(request: IndicatorRequest) -> pd.DataFrame:
         [bar.model_dump(exclude={"timestamp"}) for bar in bars],
         index=pd.DatetimeIndex([bar.timestamp for bar in bars], name="timestamp"),
     )
+
+
+@app.post("/api/v1/market-data/import", tags=["market-data"])
+def import_market_data(request: OHLCVImportRequest) -> dict:
+    """Persist validated OHLCV bars; repeated timestamps are updated idempotently."""
+    try:
+        result = get_market_data_store().upsert_bars(
+            request.symbol, request.timeframe, request.bars, source=request.source
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "symbol": request.symbol.upper(),
+        "timeframe": request.timeframe,
+        "bars_received": len(request.bars),
+        **result,
+    }
+
+
+@app.get("/api/v1/market-data/bars/{symbol}", tags=["market-data"])
+def read_market_data(
+    symbol: str,
+    timeframe: str = Query(default="1d", pattern="^(1h|4h|1d)$"),
+    limit: int = Query(default=1000, ge=1, le=10000),
+) -> dict:
+    """Return the most recent stored candles in chronological order."""
+    store = get_market_data_store()
+    bars = store.get_bars(symbol, timeframe, limit=limit)
+    return {
+        "symbol": symbol.upper(),
+        "timeframe": timeframe,
+        "bars_returned": len(bars),
+        "bars": bars,
+    }
 
 
 @app.post("/api/v1/indicators", tags=["research"])
@@ -80,7 +125,6 @@ def scan_setup(setup: str, request: IndicatorRequest) -> dict:
     return result.to_dict()
 
 
-
 @app.post("/api/v1/rank", tags=["research"])
 def rank_candidate(request: RankingRequest) -> dict:
     """Return an explainable 100-point daily stock ranking."""
@@ -99,7 +143,6 @@ def rank_candidate(request: RankingRequest) -> dict:
     return result.to_dict()
 
 
-
 @app.post("/api/v1/universe/scan", tags=["research"])
 def scan_universe(request: UniverseScanRequest) -> dict:
     """Rank a supplied stock universe and evaluate all three daily setups."""
@@ -109,8 +152,8 @@ def scan_universe(request: UniverseScanRequest) -> dict:
         if candidate.timeframe != "1d":
             errors.append({"symbol": candidate.symbol.upper(), "error": "Daily bars are required."})
             continue
-        frame = _bars_to_frame(candidate)
         try:
+            frame = _bars_to_frame(candidate)
             ranking = rank_stock(
                 candidate.symbol,
                 frame,
@@ -129,8 +172,11 @@ def scan_universe(request: UniverseScanRequest) -> dict:
                     setup for setup, result in setup_results.items() if result["passed"]
                 ],
             })
-        except ValueError as exc:
-            errors.append({"symbol": candidate.symbol.upper(), "error": str(exc)})
+        except (ValueError, HTTPException) as exc:
+            errors.append({
+                "symbol": candidate.symbol.upper(),
+                "error": exc.detail if isinstance(exc, HTTPException) else str(exc),
+            })
 
     ranked.sort(key=lambda item: item["ranking"]["score"], reverse=True)
     for position, item in enumerate(ranked, start=1):
