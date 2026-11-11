@@ -105,3 +105,27 @@ class BacktestRequest(BaseModel):
         if len(normalized) != len(set(normalized)):
             raise ValueError("Symbols must be unique")
         return self
+
+
+class PortfolioBacktestRequest(BaseModel):
+    """Portfolio-level simulation settings for stored daily histories."""
+
+    symbols: list[str] = Field(min_length=1, max_length=50)
+    setup: Literal["reversal", "vcp", "momentum"]
+    initial_capital: float = Field(default=1_000_000, gt=0)
+    risk_per_trade_pct: float = Field(default=0.5, gt=0, le=5)
+    max_positions: int = Field(default=5, ge=1, le=50)
+    target_pct: float = Field(default=5.0, gt=0, le=50)
+    stop_atr_multiple: float = Field(default=1.5, gt=0, le=10)
+    max_holding_sessions: int = Field(default=10, ge=1, le=30)
+    cost_bps_per_side: float = Field(default=10.0, ge=0, le=500)
+    train_fraction: float = Field(default=0.7, ge=0.5, le=0.9)
+
+    @model_validator(mode="after")
+    def validate_unique_symbols(self):
+        normalized = [symbol.strip().upper() for symbol in self.symbols]
+        if any(not symbol for symbol in normalized):
+            raise ValueError("Symbols cannot be blank")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("Symbols must be unique")
+        return self
