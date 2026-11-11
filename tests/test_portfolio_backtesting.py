@@ -37,5 +37,6 @@ def test_chronological_train_test_split():
     ]
     split = chronological_split(candidates, 0.5)
     assert split["split_date"] == "2025-01-04"
-    assert len(split["train"]) == 2
+    assert len(split["train"]) == 0
     assert len(split["test"]) == 2
+    assert split["boundary_trades_excluded"] == 2
