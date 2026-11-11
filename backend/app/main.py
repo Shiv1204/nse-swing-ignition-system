@@ -393,6 +393,7 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
         "initial_capital": request.initial_capital,
         "risk_per_trade_pct": request.risk_per_trade_pct,
         "max_positions": request.max_positions,
+        "max_participation_pct": request.max_participation_pct,
     }
     train = simulate_portfolio(split["train"], **settings_for_sim)
     test = simulate_portfolio(split["test"], **settings_for_sim)
@@ -414,12 +415,17 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
             "max_holding_sessions": request.max_holding_sessions,
             "cost_bps_per_side": request.cost_bps_per_side,
             "train_fraction": request.train_fraction,
+            "max_participation_pct": request.max_participation_pct,
+            "liquidity_cap_basis": "position notional capped at configured percentage of 20-session average daily traded value before signal date",
             "entry_rule": "next session open after completed daily signal",
         },
         "warning": (
             "Prototype portfolio simulation. Candidate trades are generated independently per symbol "
             "before portfolio allocation. Same-day exits do not release capital for same-day new entries. "
-            "This is not a fully marked-to-market daily equity curve and does not model taxes, "
-            "corporate actions, liquidity/market impact or point-in-time index membership."
+            "Daily equity curve marks open positions using daily close prices; stop/target fills remain modeled "
+            "by the single-symbol engine. Liquidity sizing is a coarse traded-value participation cap, not "
+            "market-impact simulation. Costs remain a configurable flat basis-point assumption, not a "
+            "complete India-specific tax/fee schedule. Corporate actions and point-in-time index membership "
+            "are not fully modeled."
         ),
     }
