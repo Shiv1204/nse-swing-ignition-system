@@ -103,8 +103,12 @@ def chronological_split(trades: list[dict], train_fraction: float = 0.7) -> dict
         return {"split_date": None, "train": trades, "test": []}
     split_index = min(max(1, int(len(dates) * train_fraction)), len(dates) - 1)
     split_date = dates[split_index]
+    train = [t for t in trades if t["entry_date"] < split_date and t["exit_date"] < split_date]
+    test = [t for t in trades if t["entry_date"] >= split_date]
+    excluded = len(trades) - len(train) - len(test)
     return {
         "split_date": split_date,
-        "train": [t for t in trades if t["entry_date"] < split_date],
-        "test": [t for t in trades if t["entry_date"] >= split_date],
+        "train": train,
+        "test": test,
+        "boundary_trades_excluded": excluded,
     }
