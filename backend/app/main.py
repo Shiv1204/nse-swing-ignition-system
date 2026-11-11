@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Query
 import pandas as pd
 
 from backend.app.config import get_settings
+from backend.app.backtesting import backtest_symbol
 from backend.app.indicators import calculate_indicators
 from backend.app.eod_pipeline import run_eod_pipeline
 from backend.app.market_data import MarketDataStore
@@ -10,6 +11,7 @@ from backend.app.scoring import rank_stock
 from backend.app.universe import load_universe
 from backend.app.yahoo_finance import YahooFinanceProvider
 from backend.app.schemas import (
+    BacktestRequest,
     EODPipelineRequest,
     IndicatorRequest,
     OHLCVImportRequest,
@@ -300,5 +302,59 @@ def scan_universe(request: UniverseScanRequest) -> dict:
         "note": (
             "Heuristic research ranking only. Results depend on supplied completed "
             "daily bars; scores are not probabilities of profit or trade instructions."
+        ),
+    }
+
+
+
+@app.post("/api/v1/backtest", tags=["backtesting"])
+def run_historical_backtest(request: BacktestRequest) -> dict:
+    """Backtest scanner signals against stored daily candles; no orders are placed."""
+    store = get_market_data_store()
+    results = []
+    errors = []
+    for symbol in request.symbols:
+        try:
+            bars = store.get_bars(symbol, "1d", limit=10000)
+            if not bars:
+                raise ValueError("No stored daily candles; import or sync history first.")
+            frame = pd.DataFrame(
+                [{key: bar[key] for key in ("open", "high", "low", "close", "volume")} for bar in bars],
+                index=pd.DatetimeIndex([bar["timestamp"] for bar in bars], name="timestamp"),
+            )
+            results.append(backtest_symbol(
+                symbol=symbol,
+                data=frame,
+                setup=request.setup,
+                target_pct=request.target_pct,
+                stop_atr_multiple=request.stop_atr_multiple,
+                max_holding_sessions=request.max_holding_sessions,
+                cost_bps_per_side=request.cost_bps_per_side,
+            ))
+        except (ValueError, KeyError) as exc:
+            errors.append({"symbol": symbol.upper(), "error": str(exc)})
+
+    trades = [trade for result in results for trade in result["trades"]]
+    from backend.app.backtesting import summarize_trades
+    return {
+        "setup": request.setup,
+        "symbols_requested": len(request.symbols),
+        "symbols_backtested": len(results),
+        "symbols_failed": len(errors),
+        "parameters": {
+            "target_pct": request.target_pct,
+            "stop_atr_multiple": request.stop_atr_multiple,
+            "max_holding_sessions": request.max_holding_sessions,
+            "cost_bps_per_side": request.cost_bps_per_side,
+            "entry_rule": "next session open after completed daily signal",
+            "same_bar_stop_target_rule": "stop first (conservative)",
+        },
+        "aggregate": summarize_trades(trades),
+        "results": results,
+        "errors": errors,
+        "warning": (
+            "Research prototype, not validated performance. Results depend on adjusted OHLCV quality, "
+            "survivorship-free historical universe membership, execution assumptions and costs. "
+            "Signals are evaluated at close and entered next session open; no live orders are placed."
         ),
     }
