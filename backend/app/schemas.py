@@ -27,6 +27,15 @@ class IndicatorRequest(BaseModel):
     bars: list[OHLCVBar] = Field(min_length=2, max_length=2000)
 
 
+class OHLCVImportRequest(BaseModel):
+    """Validated OHLCV batch to persist in the local market-data store."""
+
+    symbol: str = Field(min_length=1, max_length=32)
+    timeframe: Literal["1h", "4h", "1d"] = "1d"
+    source: str = Field(default="manual", min_length=1, max_length=64)
+    bars: list[OHLCVBar] = Field(min_length=1, max_length=10000)
+
+
 class RankingRequest(IndicatorRequest):
     """Optional context used by the 100-point stock ranking engine."""
 
