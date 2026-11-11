@@ -72,6 +72,15 @@ def backtest_symbol(
         gross_return = exit_price / entry - 1
         net_return = (exit_price * (1 - cost_rate)) / (entry * (1 + cost_rate)) - 1
         risk_fraction = (entry - stop) / entry
+        mark_to_market = [
+            {"date": str(frame.index[j]), "close": float(frame["close"].iloc[j])}
+            for j in range(entry_i, actual_exit_i + 1)
+        ]
+        if mark_to_market:
+            mark_to_market[-1] = {"date": str(frame.index[actual_exit_i]), "close": exit_price}
+        average_daily_turnover = float(
+            (data["close"].iloc[max(0, i - 19): i + 1] * data["volume"].iloc[max(0, i - 19): i + 1]).mean()
+        )
         trades.append({
             "symbol": symbol.upper(),
             "setup": setup,
@@ -87,6 +96,8 @@ def backtest_symbol(
             "net_return_pct": round(net_return * 100, 4),
             "r_multiple": round(net_return / risk_fraction, 4),
             "holding_sessions": actual_exit_i - entry_i + 1,
+            "average_daily_turnover": round(average_daily_turnover, 2),
+            "mark_to_market": mark_to_market,
         })
         i = actual_exit_i + 1
 
