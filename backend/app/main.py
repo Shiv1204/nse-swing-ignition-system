@@ -112,7 +112,7 @@ def sync_yahoo_market_data(
         result = get_market_data_store().upsert_bars(
             symbol, timeframe, bars, source="yahoo_finance_adjusted"
         )
-    except (ValueError, RuntimeError) as exc:
+    except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {
         "symbol": symbol.upper(),
