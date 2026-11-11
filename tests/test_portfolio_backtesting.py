@@ -40,3 +40,30 @@ def test_chronological_train_test_split():
     assert len(split["train"]) == 0
     assert len(split["test"]) == 2
     assert split["boundary_trades_excluded"] == 2
+
+
+def test_liquidity_cap_limits_position_size_and_daily_curve():
+    candidate = trade("LIQ", "2025-01-02", "2025-01-04", ret=3.0)
+    candidate["average_daily_turnover"] = 10000.0
+    candidate["cost_bps_per_side"] = 10.0
+    candidate["mark_to_market"] = [
+        {"date": "2025-01-02", "close": 101.0},
+        {"date": "2025-01-03", "close": 98.0},
+        {"date": "2025-01-04", "close": 103.0},
+    ]
+    result = simulate_portfolio(
+        [candidate], initial_capital=100000, risk_per_trade_pct=0.5,
+        max_positions=5, max_participation_pct=1.0,
+    )
+    assert result["trades"][0]["quantity"] == 1
+    assert len(result["equity_curve"]) == 3
+    assert result["equity_curve"][1]["date"] == "2025-01-03"
+    assert result["equity_curve"][1]["equity"] < result["equity_curve"][0]["equity"]
+
+
+def test_liquidity_cap_skips_too_small_trade():
+    candidate = trade("ILLIQ", "2025-01-02", "2025-01-04")
+    candidate["average_daily_turnover"] = 100.0
+    result = simulate_portfolio([candidate], max_participation_pct=1.0)
+    assert result["trade_count"] == 0
+    assert result["skipped"]["liquidity_limit"] == 1
