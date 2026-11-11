@@ -3,6 +3,7 @@ import pandas as pd
 
 from backend.app.config import get_settings
 from backend.app.backtesting import backtest_symbol
+from backend.app.portfolio_backtesting import chronological_split, simulate_portfolio
 from backend.app.indicators import calculate_indicators
 from backend.app.eod_pipeline import run_eod_pipeline
 from backend.app.market_data import MarketDataStore
@@ -12,6 +13,7 @@ from backend.app.universe import load_universe
 from backend.app.yahoo_finance import YahooFinanceProvider
 from backend.app.schemas import (
     BacktestRequest,
+    PortfolioBacktestRequest,
     EODPipelineRequest,
     IndicatorRequest,
     OHLCVImportRequest,
@@ -356,5 +358,68 @@ def run_historical_backtest(request: BacktestRequest) -> dict:
             "Research prototype, not validated performance. Results depend on adjusted OHLCV quality, "
             "survivorship-free historical universe membership, execution assumptions and costs. "
             "Signals are evaluated at close and entered next session open; no live orders are placed."
+        ),
+    }
+
+
+@app.post("/api/v1/backtest/portfolio", tags=["backtesting"])
+def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
+    """Run capital-constrained portfolio simulation with chronological holdout."""
+    store = get_market_data_store()
+    candidate_trades = []
+    errors = []
+    for symbol in request.symbols:
+        try:
+            bars = store.get_bars(symbol, "1d", limit=10000)
+            if not bars:
+                raise ValueError("No stored daily candles; import or sync history first.")
+            frame = pd.DataFrame(
+                [{key: bar[key] for key in ("open", "high", "low", "close", "volume")} for bar in bars],
+                index=pd.DatetimeIndex([bar["timestamp"] for bar in bars], name="timestamp"),
+            )
+            result = backtest_symbol(
+                symbol=symbol, data=frame, setup=request.setup,
+                target_pct=request.target_pct,
+                stop_atr_multiple=request.stop_atr_multiple,
+                max_holding_sessions=request.max_holding_sessions,
+                cost_bps_per_side=request.cost_bps_per_side,
+            )
+            candidate_trades.extend(result["trades"])
+        except (ValueError, KeyError) as exc:
+            errors.append({"symbol": symbol.upper(), "error": str(exc)})
+
+    split = chronological_split(candidate_trades, request.train_fraction)
+    settings_for_sim = {
+        "initial_capital": request.initial_capital,
+        "risk_per_trade_pct": request.risk_per_trade_pct,
+        "max_positions": request.max_positions,
+    }
+    train = simulate_portfolio(split["train"], **settings_for_sim)
+    test = simulate_portfolio(split["test"], **settings_for_sim)
+    return {
+        "setup": request.setup,
+        "symbols_requested": len(request.symbols),
+        "symbols_with_usable_history": len(request.symbols) - len(errors),
+        "candidate_trades": len(candidate_trades),
+        "split_date": split["split_date"],
+        "train": train,
+        "out_of_sample": test,
+        "errors": errors,
+        "parameters": {
+            "initial_capital": request.initial_capital,
+            "risk_per_trade_pct": request.risk_per_trade_pct,
+            "max_positions": request.max_positions,
+            "target_pct": request.target_pct,
+            "stop_atr_multiple": request.stop_atr_multiple,
+            "max_holding_sessions": request.max_holding_sessions,
+            "cost_bps_per_side": request.cost_bps_per_side,
+            "train_fraction": request.train_fraction,
+            "entry_rule": "next session open after completed daily signal",
+        },
+        "warning": (
+            "Prototype portfolio simulation. Candidate trades are generated independently per symbol "
+            "before portfolio allocation. Same-day exits do not release capital for same-day new entries. "
+            "This is not a fully marked-to-market daily equity curve and does not model taxes, "
+            "corporate actions, liquidity/market impact or point-in-time index membership."
         ),
     }
