@@ -5,7 +5,7 @@ from backend.app.config import get_settings
 from backend.app.indicators import calculate_indicators
 from backend.app.scanners import run_scanner
 from backend.app.scoring import rank_stock
-from backend.app.schemas import IndicatorRequest, RankingRequest
+from backend.app.schemas import IndicatorRequest, RankingRequest, UniverseScanRequest
 
 settings = get_settings()
 
@@ -97,3 +97,53 @@ def rank_candidate(request: RankingRequest) -> dict:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return result.to_dict()
+
+
+
+@app.post("/api/v1/universe/scan", tags=["research"])
+def scan_universe(request: UniverseScanRequest) -> dict:
+    """Rank a supplied stock universe and evaluate all three daily setups."""
+    ranked = []
+    errors = []
+    for candidate in request.candidates:
+        if candidate.timeframe != "1d":
+            errors.append({"symbol": candidate.symbol.upper(), "error": "Daily bars are required."})
+            continue
+        frame = _bars_to_frame(candidate)
+        try:
+            ranking = rank_stock(
+                candidate.symbol,
+                frame,
+                sector_relative_strength_pct=candidate.sector_relative_strength_pct,
+                average_daily_turnover=candidate.average_daily_turnover,
+            )
+            setup_results = {
+                setup: run_scanner(setup, candidate.symbol, frame).to_dict()
+                for setup in ("reversal", "vcp", "momentum")
+            }
+            ranked.append({
+                "symbol": candidate.symbol.upper(),
+                "ranking": ranking.to_dict(),
+                "setups": setup_results,
+                "passed_setups": [
+                    setup for setup, result in setup_results.items() if result["passed"]
+                ],
+            })
+        except ValueError as exc:
+            errors.append({"symbol": candidate.symbol.upper(), "error": str(exc)})
+
+    ranked.sort(key=lambda item: item["ranking"]["score"], reverse=True)
+    for position, item in enumerate(ranked, start=1):
+        item["rank_position"] = position
+
+    return {
+        "symbols_received": len(request.candidates),
+        "symbols_ranked": len(ranked),
+        "symbols_rejected": len(errors),
+        "results": ranked,
+        "errors": errors,
+        "note": (
+            "Heuristic research ranking only. Results depend on supplied completed "
+            "daily bars; scores are not probabilities of profit or trade instructions."
+        ),
+    }
