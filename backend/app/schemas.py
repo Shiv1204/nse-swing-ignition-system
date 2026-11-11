@@ -25,3 +25,17 @@ class IndicatorRequest(BaseModel):
     symbol: str = Field(min_length=1, max_length=32)
     timeframe: Literal["1h", "4h", "1d"] = "1d"
     bars: list[OHLCVBar] = Field(min_length=2, max_length=2000)
+
+
+class RankingRequest(IndicatorRequest):
+    """Optional context used by the 100-point stock ranking engine."""
+
+    sector_relative_strength_pct: float | None = Field(
+        default=None,
+        description="Stock/sector relative return advantage in percentage points over a consistent lookback.",
+    )
+    average_daily_turnover: float | None = Field(
+        default=None,
+        ge=0,
+        description="Average daily traded value in INR. If omitted, estimated from the last 20 daily close * volume values.",
+    )
