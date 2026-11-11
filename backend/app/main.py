@@ -3,12 +3,14 @@ import pandas as pd
 
 from backend.app.config import get_settings
 from backend.app.indicators import calculate_indicators
+from backend.app.eod_pipeline import run_eod_pipeline
 from backend.app.market_data import MarketDataStore
 from backend.app.scanners import run_scanner
 from backend.app.scoring import rank_stock
 from backend.app.universe import load_universe
 from backend.app.yahoo_finance import YahooFinanceProvider
 from backend.app.schemas import (
+    EODPipelineRequest,
     IndicatorRequest,
     OHLCVImportRequest,
     RankingRequest,
@@ -179,6 +181,21 @@ def sync_yahoo_universe(request: YahooBatchSyncRequest) -> dict:
         "errors": errors,
         "note": "Run in small batches. Yahoo is an unofficial research-data source; requests may be throttled or unavailable.",
     }
+
+
+
+
+@app.post("/api/v1/pipeline/eod", tags=["pipeline"])
+def run_end_of_day_pipeline(request: EODPipelineRequest) -> dict:
+    """Run daily data checks, ranking, and setup scans for the configured universe."""
+    try:
+        return run_eod_pipeline(
+            store=get_market_data_store(),
+            sync_market_data=request.sync_market_data,
+            shortlist_limit=request.shortlist_limit,
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @app.post("/api/v1/indicators", tags=["research"])
