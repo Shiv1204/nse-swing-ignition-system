@@ -89,6 +89,37 @@ def read_market_data(
     }
 
 
+
+
+@app.post("/api/v1/market-data/sync/{symbol}", tags=["market-data"])
+def sync_yahoo_market_data(
+    symbol: str,
+    timeframe: str = Query(default="1d", pattern="^(1h|1d)$"),
+    period: str | None = Query(default=None),
+) -> dict:
+    """Fetch Yahoo Finance history and upsert it into local storage.
+
+    Re-running this endpoint refreshes overlapping candles and adds new ones.
+    Yahoo data is unofficial research data, not an exchange-grade live feed.
+    """
+    try:
+        bars = YahooFinanceProvider().fetch_bars(symbol, timeframe, period)
+        result = get_market_data_store().upsert_bars(
+            symbol, timeframe, bars, source="yahoo_finance_adjusted"
+        )
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "symbol": symbol.upper(),
+        "provider_symbol": YahooFinanceProvider.yahoo_symbol(symbol),
+        "provider": "yahoo_finance",
+        "timeframe": timeframe,
+        "bars_received": len(bars),
+        **result,
+        "note": "Yahoo adjusted historical data is for research; verify quality and rights before operational use.",
+    }
+
+
 @app.post("/api/v1/indicators", tags=["research"])
 def get_indicators(request: IndicatorRequest) -> dict:
     """Calculate descriptive indicators; this is not a trading signal."""
