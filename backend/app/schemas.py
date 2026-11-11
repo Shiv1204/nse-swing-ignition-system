@@ -79,3 +79,10 @@ class UniverseScanRequest(BaseModel):
         if len(symbols) != len(set(symbols)):
             raise ValueError("Candidate symbols must be unique")
         return self
+
+
+class EODPipelineRequest(BaseModel):
+    """Controls one manual end-of-day research pipeline run."""
+
+    sync_market_data: bool = False
+    shortlist_limit: int = Field(default=30, ge=1, le=100)
