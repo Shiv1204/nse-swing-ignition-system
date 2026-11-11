@@ -29,6 +29,7 @@ WEIGHTS = {
 class RankingResult:
     symbol: str
     score: int
+    rank_band: str
     max_score: int
     category_scores: dict[str, int]
     category_max_scores: dict[str, int]
@@ -187,9 +188,12 @@ def rank_stock(
 
     available = tuple(name for name in WEIGHTS if name != "sector_relative_strength" or sector_relative_strength_pct is not None)
     unavailable = tuple(name for name in WEIGHTS if name not in available)
+    total_score = sum(scores.values())
+    rank_band = ("priority" if total_score >= 80 else "watch" if total_score >= 70 else "developing" if total_score >= 60 else "reject")
     return RankingResult(
         symbol=symbol.upper(),
-        score=sum(scores.values()),
+        score=total_score,
+        rank_band=rank_band,
         max_score=100,
         category_scores=scores,
         category_max_scores=WEIGHTS.copy(),
