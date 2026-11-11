@@ -45,7 +45,18 @@ Use `import_ohlcv_csv(path, symbol, timeframe, store)` from `backend.app.market_
 
 The starter universe file is `data/universe/nse500.csv`. It intentionally contains headers only: populate it from a verified, dated constituent source. Do not treat a current constituent list as historical membership for backtests.
 
-No market data is downloaded automatically in this phase. A provider must be selected and its licensing, API limits, adjustment methodology, and historical coverage verified before scheduled ingestion is enabled.
+A verified provider and dated constituent universe are still required before production or historical performance analysis.
+
+
+### Yahoo Finance prototype sync
+
+Install `yfinance` through `pip install -r requirements.txt`. The provider maps bare NSE symbols to Yahoo's `.NS` suffix and stores adjusted OHLCV candles in SQLite.
+
+- `POST /api/v1/market-data/sync/RELIANCE?timeframe=1d&period=5y` — fetch daily history and upsert it.
+- `POST /api/v1/market-data/sync/RELIANCE?timeframe=1h&period=60d` — fetch hourly history and upsert it.
+- Repeat the daily sync after market close to refresh overlapping candles and append newer data.
+
+The initial adapter supports daily and hourly candles. Four-hour bars are intentionally not synthesized yet because aggregation must respect NSE trading sessions and partial final candles. The Yahoo Finance library is an unofficial interface to Yahoo data; availability, coverage, adjustments, rate limits, terms, and redistribution rights can change. Validate imported candles against a trusted source before using them for performance claims or trade decisions. The provider is a prototype and is not a guaranteed real-time feed. No automatic 500-symbol batch download or scheduler is enabled yet.
 
 ## Research endpoints
 
