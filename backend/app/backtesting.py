@@ -97,6 +97,7 @@ def backtest_symbol(
             "r_multiple": round(net_return / risk_fraction, 4),
             "holding_sessions": actual_exit_i - entry_i + 1,
             "average_daily_turnover": round(average_daily_turnover, 2),
+            "cost_bps_per_side": cost_bps_per_side,
             "mark_to_market": mark_to_market,
         })
         i = actual_exit_i + 1
