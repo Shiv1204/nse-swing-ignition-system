@@ -39,3 +39,16 @@ class RankingRequest(IndicatorRequest):
         ge=0,
         description="Average daily traded value in INR. If omitted, estimated from the last 20 daily close * volume values.",
     )
+
+
+class UniverseScanRequest(BaseModel):
+    """Batch scan up to 500 symbols using supplied daily OHLCV history."""
+
+    candidates: list[RankingRequest] = Field(min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_unique_symbols(self):
+        symbols = [candidate.symbol.strip().upper() for candidate in self.candidates]
+        if len(symbols) != len(set(symbols)):
+            raise ValueError("Candidate symbols must be unique")
+        return self
