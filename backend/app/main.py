@@ -4,7 +4,8 @@ import pandas as pd
 from backend.app.config import get_settings
 from backend.app.indicators import calculate_indicators
 from backend.app.scanners import run_scanner
-from backend.app.schemas import IndicatorRequest
+from backend.app.scoring import rank_stock
+from backend.app.schemas import IndicatorRequest, RankingRequest
 
 settings = get_settings()
 
@@ -74,6 +75,25 @@ def scan_setup(setup: str, request: IndicatorRequest) -> dict:
     frame = _bars_to_frame(request)
     try:
         result = run_scanner(setup, request.symbol, frame)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return result.to_dict()
+
+
+
+@app.post("/api/v1/rank", tags=["research"])
+def rank_candidate(request: RankingRequest) -> dict:
+    """Return an explainable 100-point daily stock ranking."""
+    if request.timeframe != "1d":
+        raise HTTPException(status_code=422, detail="Initial ranking rules require daily bars.")
+    frame = _bars_to_frame(request)
+    try:
+        result = rank_stock(
+            request.symbol,
+            frame,
+            sector_relative_strength_pct=request.sector_relative_strength_pct,
+            average_daily_turnover=request.average_daily_turnover,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return result.to_dict()
