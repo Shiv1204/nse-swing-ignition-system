@@ -42,7 +42,7 @@ def run_eod_pipeline(
                         "bars_received": len(bars),
                         **counts,
                     })
-                except (ValueError, RuntimeError) as exc:
+                except Exception as exc:
                     sync_errors.append({"symbol": symbol, "error": str(exc)})
 
     ranked: list[dict] = []
