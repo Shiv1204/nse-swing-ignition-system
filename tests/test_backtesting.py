@@ -42,3 +42,11 @@ def test_backtest_result_has_trade_schema():
         assert trade["entry_date"] >= trade["signal_date"]
         assert trade["exit_reason"] in {"stop", "target", "time"}
         assert trade["holding_sessions"] <= 10
+
+
+def test_backtest_trade_includes_daily_marks_and_turnover():
+    result = backtest_symbol("ABC", rising_frame(), "reversal")
+    for trade in result["trades"]:
+        assert "average_daily_turnover" in trade
+        assert "mark_to_market" in trade
+        assert trade["mark_to_market"][-1]["date"] == trade["exit_date"]
