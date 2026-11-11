@@ -17,7 +17,7 @@ class OHLCVBar(BaseModel):
         if self.high < max(self.open, self.close, self.low):
             raise ValueError("high must be >= open, close, and low")
         if self.low > min(self.open, self.close, self.high):
-            raise ValueError("low must be <= open, close, and high")
+            raise ValueError("low must be <= open, high, and close")
         return self
 
 
@@ -34,6 +34,24 @@ class OHLCVImportRequest(BaseModel):
     timeframe: Literal["1h", "4h", "1d"] = "1d"
     source: str = Field(default="manual", min_length=1, max_length=64)
     bars: list[OHLCVBar] = Field(min_length=1, max_length=10000)
+
+
+class YahooBatchSyncRequest(BaseModel):
+    """Bounded Yahoo Finance batch; omitted symbols means use the CSV universe."""
+
+    symbols: list[str] | None = Field(default=None, max_length=50)
+    timeframe: Literal["1h", "1d"] = "1d"
+    period: str | None = None
+
+    @model_validator(mode="after")
+    def validate_unique_symbols(self):
+        if self.symbols is not None:
+            normalized = [symbol.strip().upper() for symbol in self.symbols]
+            if any(not symbol for symbol in normalized):
+                raise ValueError("Symbols cannot be blank")
+            if len(normalized) != len(set(normalized)):
+                raise ValueError("Symbols must be unique")
+        return self
 
 
 class RankingRequest(IndicatorRequest):
