@@ -37,8 +37,8 @@ def test_membership_history_rejects_overlapping_intervals(tmp_path: Path):
 def test_membership_history_rejects_empty_half_open_interval(tmp_path: Path):
     path = tmp_path / "membership.csv"
     path.write_text(
-        "symbol,sector,valid_from,valid_to,source,as_of_date\\n"
-        "AAA,IT,2021-01-01,2021-01-01,NSE circular,2021-01-01\\n",
+        "symbol,sector,valid_from,valid_to,source,as_of_date\n"
+        "AAA,IT,2021-01-01,2021-01-01,NSE circular,2021-01-01\n",
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="must be after"):
