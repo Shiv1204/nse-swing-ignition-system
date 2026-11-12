@@ -163,3 +163,13 @@ class MarketRegimeRequest(BaseModel):
     """Refresh and classify the broad-market benchmark."""
     benchmark: str = Field(default="^NSEI", min_length=1, max_length=32)
     sync_market_data: bool = True
+
+
+class PaperOrderRequest(BaseModel):
+    """Manual simulated cash-equity order; never routes to a broker."""
+    symbol: str = Field(min_length=1, max_length=32)
+    side: Literal["buy", "sell"]
+    quantity: int = Field(gt=0, le=1_000_000)
+    assumed_fill_price: float = Field(gt=0)
+    initial_capital: float = Field(default=1_000_000, gt=0)
+    note: str = Field(default="", max_length=500)
