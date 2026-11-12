@@ -120,6 +120,11 @@ class PortfolioBacktestRequest(BaseModel):
     max_holding_sessions: int = Field(default=10, ge=1, le=30)
     cost_bps_per_side: float = Field(default=10.0, ge=0, le=500)
     train_fraction: float = Field(default=0.7, ge=0.5, le=0.9)
+    cost_model: Literal["flat_bps", "india_equity_delivery"] = "india_equity_delivery"
+    delivery_brokerage_pct: float = Field(default=0.0, ge=0, le=1)
+    delivery_brokerage_cap: float = Field(default=20.0, ge=0, le=1000)
+    delivery_dp_charge: float = Field(default=0.0, ge=0, le=1000)
+    delivery_slippage_bps_each_side: float = Field(default=5.0, ge=0, le=500)
     market_filter_enabled: bool = True
     market_score_threshold: int = Field(default=65, ge=0, le=100)
     market_minimum_completeness_pct: float = Field(default=80.0, ge=0, le=100)
