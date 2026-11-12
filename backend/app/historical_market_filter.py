@@ -50,9 +50,13 @@ def evaluate_historical_market_filter(
                 for symbol in aligned
                 if symbol in date_sector_map
             ]
+            has_sector_labels = any(
+                row.get("sector") and row.get("sector") != "Unclassified"
+                for row in constituents
+            )
             sectors = (
                 calculate_sector_strength(constituents, aligned, benchmark_history)
-                if len(constituents) >= 2 and len(benchmark_history) >= 21
+                if has_sector_labels and len(constituents) >= 2 and len(benchmark_history) >= 21
                 and str(benchmark_history.index[-1].date()) == signal_date
                 else None
             )
