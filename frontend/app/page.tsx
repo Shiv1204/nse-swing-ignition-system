@@ -139,7 +139,7 @@ export default function Dashboard() {
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand"><div className="brand-mark"><CandlestickChart size={22}/></div><div><strong>NSIS<span>10</span></strong><small>SWING IGNITION SYSTEM</small></div></div>
-        <div className="workspace-label">WORKSPACE</div>
+        <div className="workspace-label">WORKSPACE</div>\n        <a className="nav-item" href="/paper"><Wallet size={17}/>Paper trading</a>
         <nav className="side-nav">
           {tabs.map(item => <button key={item.id} className={tab === item.id ? "nav-item active" : "nav-item"} onClick={() => setTab(item.id)}><item.icon size={17}/>{item.label}</button>)}
         </nav>
