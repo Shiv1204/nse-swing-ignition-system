@@ -72,10 +72,10 @@ def import_nse_bhavcopy(
             trade_day = _trade_date(_first(row, ("TradDt", "BizDt", "TIMESTAMP", "DATE1", "DATE")))
             bar = OHLCVBar(
                 timestamp=datetime.combine(trade_day, time.min),
-                open=float(_first(row, ("OpnPric", "OPEN"))),
-                high=float(_first(row, ("HghPric", "HIGH"))),
-                low=float(_first(row, ("LwPric", "LOW"))),
-                close=float(_first(row, ("ClsPric", "CLOSE"))),
+                open=float(_first(row, ("OpnPric", "OPEN_PRICE", "OPEN"))),
+                high=float(_first(row, ("HghPric", "HIGH_PRICE", "HIGH"))),
+                low=float(_first(row, ("LwPric", "LOW_PRICE", "LOW"))),
+                close=float(_first(row, ("ClsPric", "CLOSE_PRICE", "CLOSE"))),
                 volume=float(_first(row, ("TtlTradgVol", "TOTTRDQTY", "TTL_TRD_QNTY"))),
             )
             imported.setdefault(symbol, []).append(bar)
