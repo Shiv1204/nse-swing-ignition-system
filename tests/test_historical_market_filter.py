@@ -35,10 +35,10 @@ def test_filter_uses_point_in_time_members_and_penalizes_missing_histories(tmp_p
     from backend.app.membership_history import load_membership_history
     membership_file = tmp_path / "members.csv"
     membership_file.write_text(
-        "symbol,sector,valid_from,valid_to,source,as_of_date\\n"
-        "AAA,,2020-01-01,,press_release,2026-11-02\\n"
-        "BBB,,2020-01-01,,press_release,2026-11-02\\n"
-        "CCC,,2020-01-01,,press_release,2026-11-02\\n",
+        "symbol,sector,valid_from,valid_to,source,as_of_date\n"
+        "AAA,,2020-01-01,,press_release,2026-11-02\n"
+        "BBB,,2020-01-01,,press_release,2026-11-02\n"
+        "CCC,,2020-01-01,,press_release,2026-11-02\n",
         encoding="utf-8",
     )
     membership = load_membership_history(membership_file)
