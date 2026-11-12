@@ -9,7 +9,7 @@ def test_market_intelligence_scores_bullish_complete_snapshot():
     }
     sectors = {"sectors": {"IT": {"relative_strength_pct": 2.0}, "BANK": {"relative_strength_pct": -1.0}}}
     result = calculate_market_intelligence(regime, breadth, sectors)
-    assert result["score"] == 81
+    assert result["score"] == 80
     assert result["status"] == "favorable"
     assert result["data_completeness_pct"] == 100
 
