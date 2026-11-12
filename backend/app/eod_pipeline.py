@@ -10,6 +10,7 @@ from backend.app.scanners import run_scanner
 from backend.app.scoring import rank_stock
 from backend.app.sector_strength import calculate_sector_strength
 from backend.app.market_breadth import calculate_market_breadth
+from backend.app.market_intelligence import calculate_market_intelligence
 from backend.app.universe import load_universe
 from backend.app.yahoo_finance import YahooFinanceProvider
 
@@ -127,6 +128,8 @@ def run_eod_pipeline(
         except ValueError:
             market_regime = None
 
+    market_intelligence = calculate_market_intelligence(market_regime, market_breadth, sector_analysis)
+
     # A bearish benchmark blocks new long-only shortlist entries. Sideways
     # conditions raise the minimum score; unavailable benchmark data is
     # explicitly disclosed and does not silently claim regime confirmation.
@@ -153,6 +156,7 @@ def run_eod_pipeline(
         "market_regime": market_regime,
         "sector_strength": sector_analysis,
         "market_breadth": market_breadth,
+        "market_intelligence": market_intelligence,
         "market_regime_filter": {
             "status": market_regime["regime"] if market_regime else "unavailable",
             "minimum_score": minimum_score,
@@ -166,6 +170,7 @@ def run_eod_pipeline(
             "Research-only output; ranking scores are heuristic and are not probabilities of profit.",
             "Sector-relative strength uses an equal-weight constituent proxy versus Nifty 50.",
             "Market breadth uses configured-universe members with at least 201 daily bars; inspect coverage and last-candle dates before interpreting the percentages.",
+            "Market intelligence is a normalized, explainable heuristic score; review data completeness and component details before interpreting its status.",
             "The Nifty 50 market-regime filter blocks new long shortlist candidates in bearish conditions and raises the score threshold to 70 in sideways conditions. It requires at least 210 stored Nifty daily candles.",
             "Only completed daily candles should be used; verify the latest candle timestamp before acting.",
             "Yahoo Finance is an unofficial data source and may throttle or omit symbols.",
