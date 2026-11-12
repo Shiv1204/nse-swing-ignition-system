@@ -30,7 +30,7 @@ npm install
 npm run dev
 ```
 
-Set `NEXT_PUBLIC_API_BASE_URL` in `frontend/.env.local` to the backend URL (default: `http://localhost:8000`). Start the backend separately using the instructions in `backend/README.md`. The dashboard currently provides API connectivity status, EOD pipeline execution, ranked watchlists, and portfolio backtest controls. It displays no fabricated market prices; results require a configured universe and stored OHLCV history.
+Set `NEXT_PUBLIC_API_BASE_URL` in `frontend/.env.local` to the backend URL (default: `http://localhost:8000`). Start the backend separately using the instructions in `backend/README.md`. The dashboard currently provides API connectivity status, EOD pipeline execution, ranked watchlists, portfolio backtest controls, and a stock detail view. Select a symbol in either watchlist to load up to 500 stored daily candles, calculate the backend indicator set, and view the close/20-day average and volume charts. If no history is stored, the detail view offers a manual five-year Yahoo Finance history sync for that symbol. Yahoo is an unofficial research-data source and may be unavailable or throttled. It displays no fabricated market prices; actual data requires successful ingestion.
 
 ## Initial development sequence
 
