@@ -92,6 +92,7 @@ def import_nse_bhavcopy(
     return {
         "file": path.name,
         "symbols": len(imported),
+        "symbol_list": sorted(imported),
         "rows_imported": sum(len(bars) for bars in imported.values()),
         "trading_dates": sorted(dates),
         **totals,
@@ -115,7 +116,7 @@ def import_nse_bhavcopy_directory(
     reports = [import_nse_bhavcopy(path, store, series=series) for path in files]
     return {
         "files_processed": len(reports),
-        "symbols_seen": len({symbol for report in reports for symbol in []}),
+        "symbols_seen": len({symbol for report in reports for symbol in report["symbol_list"]}),
         "rows_imported": sum(report["rows_imported"] for report in reports),
         "inserted": sum(report["inserted"] for report in reports),
         "updated": sum(report["updated"] for report in reports),
