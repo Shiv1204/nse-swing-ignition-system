@@ -7,6 +7,7 @@ from backend.app.market_breadth import calculate_market_breadth
 from backend.app.market_intelligence import calculate_market_intelligence
 from backend.app.market_regime import classify_market_regime
 from backend.app.sector_strength import calculate_sector_strength
+from backend.app.membership_history import members_on_date
 
 
 def evaluate_historical_market_filter(
@@ -16,6 +17,7 @@ def evaluate_historical_market_filter(
     sector_by_symbol: dict[str, str],
     score_threshold: int = 65,
     minimum_completeness_pct: float = 80.0,
+    membership_rows: list[dict] | None = None,
 ) -> dict:
     """Attach signal-date market scores; use no candle later than signal date."""
     cache: dict[str, dict] = {}
@@ -23,8 +25,13 @@ def evaluate_historical_market_filter(
     for trade in trades:
         signal_date = str(pd.Timestamp(trade["signal_date"]).date())
         if signal_date not in cache:
+            membership = members_on_date(membership_rows, signal_date) if membership_rows is not None else []
+            expected_symbols = [row["symbol"] for row in membership] if membership_rows is not None else list(histories)
             aligned: dict[str, pd.DataFrame] = {}
-            for symbol, frame in histories.items():
+            for symbol in expected_symbols:
+                frame = histories.get(symbol)
+                if frame is None:
+                    continue
                 history = frame.loc[frame.index.date <= pd.Timestamp(signal_date).date()]
                 if len(history) and str(history.index[-1].date()) == signal_date:
                     aligned[symbol] = history
@@ -32,13 +39,16 @@ def evaluate_historical_market_filter(
             regime = None
             if len(benchmark_history) >= 210 and str(benchmark_history.index[-1].date()) == signal_date:
                 regime = classify_market_regime(benchmark_history)
-            breadth = calculate_market_breadth(aligned) if aligned else None
+            breadth = calculate_market_breadth(aligned, expected_symbols=expected_symbols) if aligned else None
             constituents = [
                 {"symbol": symbol, "sector": sector_by_symbol.get(symbol, "Unclassified")}
                 for symbol in aligned
             ]
             sectors = calculate_sector_strength(constituents, aligned, benchmark_history) if len(benchmark_history) >= 21 and str(benchmark_history.index[-1].date()) == signal_date else None
-            cache[signal_date] = calculate_market_intelligence(regime, breadth, sectors)
+            snapshot = calculate_market_intelligence(regime, breadth, sectors)
+            if breadth:
+                snapshot["data_completeness_pct"] = min(snapshot["data_completeness_pct"], breadth["coverage_pct"])
+            cache[signal_date] = snapshot
         intelligence = cache[signal_date]
         annotated = {**trade, "market_intelligence": intelligence}
         evaluated.append(annotated)
@@ -55,5 +65,5 @@ def evaluate_historical_market_filter(
         "snapshots_calculated": len(cache),
         "score_threshold": score_threshold,
         "minimum_completeness_pct": minimum_completeness_pct,
-        "warning": "Historical market scores use only selected-symbol histories and the stored benchmark, aligned to each signal date. This is a subset proxy, not full point-in-time NSE 500 breadth; historical constituent membership and corporate actions remain limitations.",
+        "warning": "Point-in-time membership is used when verified membership history is supplied. Breadth coverage is measured against expected members; missing price histories reduce completeness. Without membership history, selected backtest symbols are only a subset proxy.",
     }
