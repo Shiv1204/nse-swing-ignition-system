@@ -12,6 +12,7 @@ import {
 const API = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
 
 type Tab = "overview" | "scanner" | "backtest";
+type MarketRegime = { benchmark: string; as_of: string; regime: "bullish" | "sideways" | "bearish"; suggested_exposure: string; close: number; sma_50: number; sma_200: number; return_20_sessions_pct: number; adx_14: number; rationale: string; warning: string };
 type ScanRow = {
   symbol: string;
   ranking?: { score?: number; rank_band?: string; close?: number; reasons?: string[] };
@@ -47,6 +48,9 @@ export default function Dashboard() {
   const [backtestResult, setBacktestResult] = useState<Record<string, unknown> | null>(null);
   const [backtestBusy, setBacktestBusy] = useState(false);
   const [toast, setToast] = useState("");
+  const [marketRegime, setMarketRegime] = useState<MarketRegime | null>(null);
+  const [regimeBusy, setRegimeBusy] = useState(false);
+  const [regimeError, setRegimeError] = useState("");
 
   const checkApi = useCallback(async () => {
     setApiChecking(true);
@@ -77,6 +81,20 @@ export default function Dashboard() {
     } catch (error) {
       setPipelineError(error instanceof Error ? error.message : "Unable to run the scan");
     } finally { setPipelineBusy(false); }
+  };
+
+  const refreshMarketRegime = async () => {
+    setRegimeBusy(true); setRegimeError("");
+    try {
+      const response = await fetch(`${API}/api/v1/market-regime`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ benchmark: "^NSEI", sync_market_data: true }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || "Market regime request failed");
+      setMarketRegime(payload as MarketRegime);
+    } catch (error) { setRegimeError(error instanceof Error ? error.message : "Could not load market regime"); }
+    finally { setRegimeBusy(false); }
   };
 
   const runBacktest = async () => {
@@ -146,6 +164,19 @@ export default function Dashboard() {
           {pipelineError && <div className="notice error"><CircleAlert size={18}/><div><b>Scan could not run</b><p>{pipelineError}</p></div><button className="plain-icon" onClick={() => setPipelineError("")}><X size={16}/></button></div>}
 
           {tab === "overview" && <>
+            <div className="panel-card market-regime-card">
+              <div className="card-head"><div><div className="eyebrow">BROAD MARKET FILTER · NIFTY 50</div><h2>Market regime</h2></div><button className="button secondary" disabled={!apiOnline || regimeBusy} onClick={() => void refreshMarketRegime()}>{regimeBusy ? <LoaderCircle className="spin" size={14}/> : <RefreshCw size={14}/>} Refresh regime</button></div>
+              {regimeError && <div className="notice error"><CircleAlert size={16}/>{regimeError}</div>}
+              {marketRegime ? <>
+                <div className="regime-summary"><span className={`regime-pill ${marketRegime.regime}`}>{marketRegime.regime.toUpperCase()}</span><b>{marketRegime.suggested_exposure.toUpperCase()} EXPOSURE</b><small>As of {marketRegime.as_of}</small></div>
+                <div className="regime-metrics">
+                  <Metric icon={<Activity size={17}/>} label="Nifty 50" value={money(marketRegime.close)} hint="Benchmark close"/>
+                  <Metric icon={<TrendingUp size={17}/>} label="20-session return" value={`${marketRegime.return_20_sessions_pct}%`} hint={`ADX ${marketRegime.adx_14}`}/>
+                  <Metric icon={<BarChart3 size={17}/>} label="SMA 50" value={money(marketRegime.sma_50)} hint={`SMA 200 ${money(marketRegime.sma_200)}`}/>
+                </div>
+                <p className="panel-intro">{marketRegime.rationale}</p><p className="panel-intro">{marketRegime.warning}</p>
+              </> : <p className="panel-intro">Refresh to download Nifty 50 daily history and classify the broad market before reviewing long setups.</p>}
+            </div>
             <div className="metric-grid">
               <Metric icon={<Gauge size={18}/>} label="Universe loaded" value={pipeline?.universe_count?.toString() || "—"} hint="Verified constituents"/>
               <Metric icon={<Activity size={18}/>} label="Stocks ranked" value={pipeline?.symbols_ranked?.toString() || "—"} hint="Daily data available"/>
