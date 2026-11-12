@@ -11,6 +11,7 @@ import pandas as pd
 
 from backend.app.indicators import calculate_indicators
 from backend.app.scanners import run_scanner
+from backend.app.scoring import rank_stock
 
 
 def backtest_symbol(
@@ -43,6 +44,7 @@ def backtest_symbol(
     while i < len(frame) - 1:
         history = data.iloc[: i + 1]
         signal = run_scanner(setup, symbol, history)
+        ranking = rank_stock(symbol, history)
         atr_value = frame["atr_14"].iloc[i]
         if not signal.passed or pd.isna(atr_value) or atr_value <= 0:
             i += 1
@@ -85,6 +87,9 @@ def backtest_symbol(
             "symbol": symbol.upper(),
             "setup": setup,
             "signal_date": str(frame.index[i]),
+            "ranking_score": ranking.score,
+            "ranking_band": ranking.rank_band,
+            "ranking_data_completeness": ranking.data_completeness,
             "entry_date": str(frame.index[entry_i]),
             "exit_date": str(frame.index[actual_exit_i]),
             "entry_price": round(entry, 4),
