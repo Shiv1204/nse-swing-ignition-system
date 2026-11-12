@@ -6,6 +6,7 @@ from backend.app.config import get_settings
 from backend.app.backtesting import backtest_symbol
 from backend.app.portfolio_backtesting import chronological_split, simulate_portfolio
 from backend.app.historical_market_filter import evaluate_historical_market_filter
+from backend.app.membership_history import load_membership_history
 from backend.app.trade_planning import build_trade_plan
 from backend.app.indicators import calculate_indicators
 from backend.app.eod_pipeline import run_eod_pipeline
@@ -398,7 +399,7 @@ def run_historical_backtest(request: BacktestRequest) -> dict:
                 target_pct=request.target_pct,
                 stop_atr_multiple=request.stop_atr_multiple,
                 max_holding_sessions=request.max_holding_sessions,
-                cost_bps_per_side=request.cost_bps_per_side,
+                cost_bps_per_side=(0.0 if request.cost_model == "india_equity_delivery" else request.cost_bps_per_side),
             ))
         except (ValueError, KeyError) as exc:
             errors.append({"symbol": symbol.upper(), "error": str(exc)})
@@ -463,6 +464,13 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
         "risk_per_trade_pct": request.risk_per_trade_pct,
         "max_positions": request.max_positions,
         "max_participation_pct": request.max_participation_pct,
+        "cost_model": request.cost_model,
+        "delivery_cost_settings": {
+            "brokerage_pct": request.delivery_brokerage_pct,
+            "brokerage_cap_per_order": request.delivery_brokerage_cap,
+            "dp_charge_per_sell_order": request.delivery_dp_charge,
+            "slippage_bps_each_side": request.delivery_slippage_bps_each_side,
+        },
     }
     train = simulate_portfolio(split["train"], **settings_for_sim)
     test = simulate_portfolio(split["test"], **settings_for_sim)
@@ -480,10 +488,15 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
                 sector_by_symbol = {item["symbol"].upper(): item.get("sector", "Unclassified") for item in universe}
             except (ValueError, FileNotFoundError):
                 sector_by_symbol = {}
+            try:
+                membership_rows = load_membership_history()
+            except (ValueError, FileNotFoundError):
+                membership_rows = None
             evaluation = evaluate_historical_market_filter(
                 candidate_trades, histories, benchmark_frame, sector_by_symbol,
                 score_threshold=request.market_score_threshold,
                 minimum_completeness_pct=request.market_minimum_completeness_pct,
+                membership_rows=membership_rows,
             )
             filtered_split = chronological_split(evaluation["accepted_trades"], request.train_fraction)
             filtered_comparison = {
@@ -528,6 +541,13 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
             "market_filter_enabled": request.market_filter_enabled,
             "market_score_threshold": request.market_score_threshold,
             "market_minimum_completeness_pct": request.market_minimum_completeness_pct,
+            "cost_model": request.cost_model,
+            "delivery_cost_settings": {
+                "brokerage_pct": request.delivery_brokerage_pct,
+                "brokerage_cap_per_order": request.delivery_brokerage_cap,
+                "dp_charge_per_sell_order": request.delivery_dp_charge,
+                "slippage_bps_each_side": request.delivery_slippage_bps_each_side,
+            },
             "liquidity_cap_basis": "position notional capped at configured percentage of 20-session average daily traded value before signal date",
             "entry_rule": "next session open after completed daily signal",
         },
