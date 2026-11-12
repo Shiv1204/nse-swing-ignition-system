@@ -606,18 +606,23 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
                 "brokerage_pct": request.delivery_brokerage_pct,
                 "brokerage_cap_per_order": request.delivery_brokerage_cap,
                 "dp_charge_per_sell_order": request.delivery_dp_charge,
+                "exchange_transaction_pct": request.delivery_exchange_transaction_pct,
+                "stt_pct_each_side": request.delivery_stt_pct_each_side,
+                "stamp_duty_pct_buy": request.delivery_stamp_duty_pct_buy,
+                "sebi_pct_each_side": request.delivery_sebi_pct_each_side,
+                "gst_pct": request.delivery_gst_pct,
                 "slippage_bps_each_side": request.delivery_slippage_bps_each_side,
             },
             "liquidity_cap_basis": "position notional capped at configured percentage of 20-session average daily traded value before signal date",
             "entry_rule": "next session open after completed daily signal",
         },
         "warning": (
-            "Prototype portfolio simulation. Candidate trades are generated independently per symbol "
-            "before portfolio allocation. Same-day exits do not release capital for same-day new entries. "
-            "Daily equity curve marks open positions using daily close prices; stop/target fills remain modeled "
-            "by the single-symbol engine. Liquidity sizing is a coarse traded-value participation cap, not "
-            "market-impact simulation. Costs remain a configurable flat basis-point assumption, not a "
-            "complete India-specific tax/fee schedule. Corporate actions and point-in-time index membership "
-            "are not fully modeled."
+            "Research prototype, not validated performance. Same-day candidates are allocated by the "
+            "point-in-time ranking score, then symbol. Same-day exits do not release capital for same-day "
+            "new entries. Delivery costs use configurable statutory and broker assumptions with simplified "
+            "rounding; confirm effective rates, broker charges and fee minimums for each historical trade date. "
+            "Slippage and liquidity participation are approximations, not market-impact or order-book models. "
+            "The ranking lacks historical sector-relative-strength context. Corporate actions and point-in-time "
+            "index membership still require independent validation. No live orders are placed."
         ),
     }
