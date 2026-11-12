@@ -26,7 +26,16 @@ def simulate_portfolio(
     if cost_model not in {"flat_bps", "india_equity_delivery"}:
         raise ValueError("Unsupported cost_model")
 
-    ordered = sorted(trades, key=lambda t: (t["entry_date"], t["symbol"]))
+    # On the same entry date, allocate scarce slots to the strongest point-in-time
+    # ranking score; use the symbol only as a deterministic tie-breaker.
+    ordered = sorted(
+        trades,
+        key=lambda t: (
+            t["entry_date"],
+            -float(t.get("ranking_score", 0)),
+            t["symbol"],
+        ),
+    )
     cash = float(initial_capital)
     active = []
     completed = []
@@ -171,6 +180,7 @@ def simulate_portfolio(
         "transaction_cost_totals": {key: round(value, 2) for key, value in cost_totals.items()},
         "total_transaction_costs": round(sum(cost_totals.values()), 2),
         "max_participation_pct": max_participation_pct,
+        "same_day_allocation_priority": "ranking_score_descending_then_symbol",
         "skipped": skipped,
         "equity_curve": equity_curve,
         "trades": completed,
