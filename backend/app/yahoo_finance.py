@@ -25,7 +25,7 @@ class YahooFinanceProvider:
         normalized = symbol.strip().upper()
         if not normalized:
             raise ValueError("Symbol cannot be blank")
-        return normalized if "." in normalized else f"{normalized}.NS"
+        if normalized in {"^NSEI", "^NSEBANK"}:\n            return normalized\n        return normalized if "." in normalized else f"{normalized}.NS"
 
     def _fetch_history(self, ticker: str, period: str, interval: str) -> pd.DataFrame:
         if self._history_fetcher is not None:
