@@ -115,3 +115,12 @@ This remains a research prototype, not a final performance simulator. Costs are 
 - The stop is placed below both the 10-session structural low and the ATR-based level (the lower of the two), which deliberately chooses the wider risk. Quantity is limited by both the risk budget and maximum capital allocation.
 - Status distinguishes a setup whose scanner conditions pass, one whose conditions fail, and a trigger already crossed by the latest close. If already crossed, do not chase; wait for a fresh setup/retest and reassess.
 - This is a conditional research plan only. It does not verify an executable order-book price, nearby resistance, gaps, slippage, complete Indian charges, or whether the last stored candle is complete. Targets are arithmetic R-multiples, not forecasts. No orders are placed.
+
+
+### Daily + hourly confirmation
+
+- The trade-plan endpoint also reads stored `1h` candles for the same symbol and checks short-term trend/momentum alignment.
+- Hourly confirmation requires at least 60 completed hourly candles and checks: close above EMA20, EMA20 above EMA50, RSI between 50 and 70, MACD above signal, and +DI above -DI.
+- Sync prototype hourly history with `POST /api/v1/market-data/sync/RELIANCE?timeframe=1h&period=60d`, then rerun `POST /api/v1/trade-plan`.
+- If hourly candles are missing or fewer than 60, the plan reports `waiting_for_hourly_data` when the daily scanner passes. If any hourly condition fails, it reports `hourly_confirmation_failed`. A daily trigger already crossed remains flagged separately.
+- Yahoo hourly history is limited, unofficial and may be delayed or incomplete. Use completed NSE-session candles only; this is a filter, not proof of future price direction. No orders are placed.
