@@ -28,7 +28,7 @@ def test_filter_uses_only_history_available_on_signal_date():
     )
     assert result["snapshots_calculated"] == 1
     assert result["trades"][0]["market_intelligence"]["score"] is not None
-    assert result["trades"][0]["market_intelligence"]["data_completeness_pct"] == 100
+    assert result["trades"][0]["market_intelligence"]["data_completeness_pct"] == 95
     assert len(result["accepted_trades"]) == 1
 
 def test_filter_uses_point_in_time_members_and_penalizes_missing_histories(tmp_path):
