@@ -21,6 +21,7 @@ type ScanRow = {
   rank_position?: number;
 };
 type Pipeline = {
+  sector_strength?: { lookback_sessions?: number; benchmark_return_pct?: number | null; sectors?: Record<string, { constituents_used: number; average_return_pct: number; relative_strength_pct: number; leaders: { symbol: string; return_pct: number }[] }> };
   universe_count?: number; symbols_ranked?: number; shortlist_count?: number;
   shortlist?: ScanRow[]; all_ranked?: ScanRow[]; errors?: {symbol:string;error:string}[];
   notes?: string[];
@@ -177,6 +178,11 @@ export default function Dashboard() {
                 <p className="panel-intro">{marketRegime.rationale}</p><p className="panel-intro">{marketRegime.warning}</p>
               </> : <p className="panel-intro">Refresh to download Nifty 50 daily history and classify the broad market before reviewing long setups.</p>}
             </div>
+            {pipeline?.sector_strength?.sectors && <div className="panel-card table-card">
+              <div className="card-head"><div><div className="eyebrow">SECTOR ROTATION · {pipeline.sector_strength.lookback_sessions || 20} SESSIONS</div><h2>Sector strength vs Nifty 50</h2></div><span className="muted-icon">Nifty return {pipeline.sector_strength.benchmark_return_pct ?? "—"}%</span></div>
+              {Object.entries(pipeline.sector_strength.sectors).sort((a,b) => b[1].relative_strength_pct-a[1].relative_strength_pct).slice(0,8).map(([name,sector]) => <div className="sector-row" key={name}><div><b>{name}</b><small>{sector.constituents_used} stocks · leaders: {sector.leaders.slice(0,3).map(item=>item.symbol).join(", ")}</small></div><strong className={sector.relative_strength_pct >= 0 ? "positive" : "negative"}>{sector.relative_strength_pct > 0 ? "+" : ""}{sector.relative_strength_pct}%</strong></div>)}
+              <p className="panel-intro">Relative strength is an equal-weight constituent proxy, not an official sector-index return. Sectors with fewer than two usable stocks are omitted.</p>
+            </div>}
             <div className="metric-grid">
               <Metric icon={<Gauge size={18}/>} label="Universe loaded" value={pipeline?.universe_count?.toString() || "—"} hint="Verified constituents"/>
               <Metric icon={<Activity size={18}/>} label="Stocks ranked" value={pipeline?.symbols_ranked?.toString() || "—"} hint="Daily data available"/>
