@@ -5,7 +5,8 @@ import csv
 from datetime import date
 from pathlib import Path
 
-REQUIRED = {"symbol", "sector", "valid_from", "valid_to", "source", "as_of_date", "source_url"}
+REQUIRED = {"symbol", "sector", "valid_from", "valid_to", "source", "as_of_date"}
+OPTIONAL = {"source_url", "confidence", "notes"}
 
 
 def load_membership_history(path: str | Path = "data/universe/nse500_membership_history.csv") -> list[dict]:
@@ -18,9 +19,9 @@ def load_membership_history(path: str | Path = "data/universe/nse500_membership_
             raise ValueError("Membership history CSV must contain: " + ", ".join(sorted(REQUIRED)))
         rows = []
         for line, raw in enumerate(reader, start=2):
-            row = {key: (raw.get(key) or "").strip() for key in REQUIRED}
+            row = {key: (raw.get(key) or "").strip() for key in REQUIRED | OPTIONAL}
             row["symbol"] = row["symbol"].upper()
-            if not row["symbol"] or not row["valid_from"] or not row["source"] or not row["source_url"]:
+            if not row["symbol"] or not row["valid_from"] or not row["source"]:
                 raise ValueError(f"Missing required membership value on line {line}")
             start = date.fromisoformat(row["valid_from"])
             end = date.fromisoformat(row["valid_to"]) if row["valid_to"] else None
