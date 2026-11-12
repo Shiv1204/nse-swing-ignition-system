@@ -80,5 +80,5 @@ def evaluate_historical_market_filter(
         "snapshots_calculated": len(cache),
         "score_threshold": score_threshold,
         "minimum_completeness_pct": minimum_completeness_pct,
-        "warning": "Point-in-time membership is used when verified membership history is supplied. Breadth coverage is measured against expected members; missing price histories reduce completeness. Without membership history, selected backtest symbols are only a subset proxy.",
+        "warning": "Point-in-time membership intervals are used when a membership file is supplied. This repository's imported third-party reconstruction is provisional, not an official NSE history export. Breadth coverage is measured against expected members; missing price histories reduce completeness. Historical sector labels are unavailable and sector strength is omitted.",
     }
