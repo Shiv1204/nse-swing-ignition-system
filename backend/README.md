@@ -105,3 +105,13 @@ These are heuristic research scores, not probabilities of profit. No broker conn
 - The response includes a daily mark-to-market equity curve and peak-to-trough drawdown using daily close marks for open positions; exit-day marks use the modeled stop/target/time exit price. Candidate signals are generated independently per symbol and then allocated in entry-date/symbol order; simultaneous candidates are not yet ranked by signal quality.
 
 This remains a research prototype, not a final performance simulator. Costs are still a configurable flat basis-point assumption rather than a detailed brokerage/STT/exchange/GST/stamp-duty/SEBI fee schedule. Validate charges and slippage against the actual broker and exchange schedule before interpreting results. The liquidity cap does not model order-book depth or market impact. Corporate actions and point-in-time index membership also require independent validation.
+
+
+### Conditional trade setup and risk plan
+
+- `POST /api/v1/trade-plan` — calculate a conditional entry trigger, ATR/structure stop, 1.5R/2R/3R targets, and risk-based share quantity for one symbol already stored in SQLite.
+- Example body: `{"symbol":"RELIANCE","setup":"momentum","capital":1000000,"risk_per_trade_pct":0.5,"max_allocation_pct":20,"stop_atr_multiple":1.5}`.
+- Reversal uses the prior 5-session high as its trigger basis; momentum uses the prior 20-session high; VCP uses the prior 55-session high and must be manually chart-validated. A small buffer is added to the pivot.
+- The stop is placed below both the 10-session structural low and the ATR-based level (the lower of the two), which deliberately chooses the wider risk. Quantity is limited by both the risk budget and maximum capital allocation.
+- Status distinguishes a setup whose scanner conditions pass, one whose conditions fail, and a trigger already crossed by the latest close. If already crossed, do not chase; wait for a fresh setup/retest and reassess.
+- This is a conditional research plan only. It does not verify an executable order-book price, nearby resistance, gaps, slippage, complete Indian charges, or whether the last stored candle is complete. Targets are arithmetic R-multiples, not forecasts. No orders are placed.
