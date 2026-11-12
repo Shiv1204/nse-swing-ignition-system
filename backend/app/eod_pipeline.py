@@ -9,6 +9,7 @@ from backend.app.market_regime import classify_market_regime
 from backend.app.scanners import run_scanner
 from backend.app.scoring import rank_stock
 from backend.app.sector_strength import calculate_sector_strength
+from backend.app.market_breadth import calculate_market_breadth
 from backend.app.universe import load_universe
 from backend.app.yahoo_finance import YahooFinanceProvider
 
@@ -51,7 +52,7 @@ def run_eod_pipeline(
     histories: dict[str, pd.DataFrame] = {}
     for symbol in symbols:
         stored = store.get_bars(symbol, "1d", limit=1000)
-        if len(stored) >= 21:
+        if len(stored) >= 201:
             histories[symbol] = pd.DataFrame(
                 [{key: bar[key] for key in ("open", "high", "low", "close", "volume")} for bar in stored],
                 index=pd.DatetimeIndex([bar["timestamp"] for bar in stored], name="timestamp"),
@@ -64,6 +65,7 @@ def run_eod_pipeline(
         )
     sector_analysis = calculate_sector_strength(universe["constituents"], histories, benchmark_for_sector, lookback=20)
     sector_relative = {sector: details["relative_strength_pct"] for sector, details in sector_analysis["sectors"].items()}
+    market_breadth = calculate_market_breadth(histories, lookback=20)
 
     ranked: list[dict] = []
     data_errors: list[dict] = []
@@ -150,6 +152,7 @@ def run_eod_pipeline(
         "data_errors": data_errors,
         "market_regime": market_regime,
         "sector_strength": sector_analysis,
+        "market_breadth": market_breadth,
         "market_regime_filter": {
             "status": market_regime["regime"] if market_regime else "unavailable",
             "minimum_score": minimum_score,
@@ -161,7 +164,8 @@ def run_eod_pipeline(
         "all_ranked": ranked,
         "notes": [
             "Research-only output; ranking scores are heuristic and are not probabilities of profit.",
-            "Sector-relative-strength points are unavailable until sector histories are integrated.",
+            "Sector-relative strength uses an equal-weight constituent proxy versus Nifty 50.",
+            "Market breadth uses configured-universe members with at least 201 daily bars; inspect coverage and last-candle dates before interpreting the percentages.",
             "The Nifty 50 market-regime filter blocks new long shortlist candidates in bearish conditions and raises the score threshold to 70 in sideways conditions. It requires at least 210 stored Nifty daily candles.",
             "Only completed daily candles should be used; verify the latest candle timestamp before acting.",
             "Yahoo Finance is an unofficial data source and may throttle or omit symbols.",
