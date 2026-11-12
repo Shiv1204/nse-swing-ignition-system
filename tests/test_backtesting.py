@@ -42,6 +42,8 @@ def test_backtest_result_has_trade_schema():
         assert trade["entry_date"] >= trade["signal_date"]
         assert trade["exit_reason"] in {"stop", "target", "time"}
         assert trade["holding_sessions"] <= 10
+        assert 0 <= trade["ranking_score"] <= 100
+        assert trade["ranking_band"] in {"priority", "watch", "developing", "reject"}
 
 
 def test_backtest_trade_includes_daily_marks_and_turnover():
