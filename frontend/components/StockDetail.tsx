@@ -80,7 +80,7 @@ export default function StockDetail({ symbol, onBack }: { symbol: string; onBack
         <Indicator label="Relative volume" value={fmt(data.latest.relative_volume_20)} note="20-day baseline" />
       </div>
       <div className="panel-card chart-panel">
-        <div className="card-head"><div><div className="eyebrow">PRICE ACTION</div><h2>Daily close & trend reference</h2></div><span className="chart-legend"><i/> Close <i className="legend-ema"/> 20-day average</span></div>
+        <div className="card-head"><div><div className="eyebrow">PRICE ACTION</div><h2>OHLC candlesticks & trend reference</h2></div><span className="chart-legend"><i/> Close <i className="legend-ema"/> 20-day average</span></div>
         <div className="chart-area"><CandlestickPlot data={chartData}/></div>
       </div>
       <div className="panel-card volume-panel">
