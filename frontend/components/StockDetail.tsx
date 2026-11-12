@@ -12,6 +12,16 @@ type BarData = { timestamp: string; open: number; high: number; low: number; clo
 type Indicators = Record<string, number | null>;
 type ChartBar = BarData & { date: string; ema20?: number | null };
 type DetailResponse = { symbol: string; bars: ChartBar[]; latest: Indicators; note?: string };
+type TradePlan = {
+  status: string; as_of: string; latest_close: number; entry_trigger: number;
+  trigger_basis: string; trigger_distance_pct: number; stop_loss: number;
+  stop_distance_pct: number; risk_per_share: number;
+  targets: Record<string, number>;
+  sizing: { capital: number; risk_per_trade_pct: number; risk_budget: number;
+    max_allocation_pct: number; quantity: number; estimated_position_value: number; estimated_risk: number };
+  scanner: { passed: boolean; score: number; reasons: string[]; failed_conditions: string[] };
+  assumptions: string[];
+};
 
 const fmt = (n?: number | null) => n == null || !Number.isFinite(n) ? "—" : n.toFixed(2);
 const rupee = (n?: number | null) => n == null ? "—" : new Intl.NumberFormat("en-IN", {style:"currency",currency:"INR",maximumFractionDigits:2}).format(n);
@@ -21,6 +31,12 @@ export default function StockDetail({ symbol, onBack }: { symbol: string; onBack
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [syncBusy, setSyncBusy] = useState(false);
+  const [planSetup, setPlanSetup] = useState("momentum");
+  const [capital, setCapital] = useState("1000000");
+  const [riskPct, setRiskPct] = useState("0.5");
+  const [plan, setPlan] = useState<TradePlan | null>(null);
+  const [planBusy, setPlanBusy] = useState(false);
+  const [planError, setPlanError] = useState("");
 
   const load = async () => {
     setBusy(true); setError("");
@@ -57,6 +73,20 @@ export default function StockDetail({ symbol, onBack }: { symbol: string; onBack
   const change = last && previous ? ((last.close / previous.close) - 1) * 100 : null;
   const chartData = useMemo(() => data?.bars || [], [data]);
 
+  const createPlan = async () => {
+    setPlanBusy(true); setPlanError(""); setPlan(null);
+    try {
+      const response = await fetch(`${API}/api/v1/trade-plan`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, setup: planSetup, capital: Number(capital), risk_per_trade_pct: Number(riskPct) }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || "Could not build trade plan");
+      setPlan(payload as TradePlan);
+    } catch (e) { setPlanError(e instanceof Error ? e.message : "Trade plan failed"); }
+    finally { setPlanBusy(false); }
+  };
+
   return <div className="stock-detail">
     <div className="detail-toolbar">
       <button className="button secondary" onClick={onBack}><ArrowLeft size={15}/> Back to scanner</button>
@@ -86,6 +116,33 @@ export default function StockDetail({ symbol, onBack }: { symbol: string; onBack
       <div className="panel-card volume-panel">
         <div className="card-head"><div><div className="eyebrow">PARTICIPATION</div><h2>Daily traded volume</h2></div><span className="volume-latest">{last?.volume.toLocaleString("en-IN") ?? "—"} shares</span></div>
         <div className="volume-chart"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} margin={{top:5,right:12,left:0,bottom:0}}><CartesianGrid stroke="#263548" strokeDasharray="3 3" vertical={false}/><XAxis dataKey="date" tick={{fill:"#8091a8",fontSize:10}} minTickGap={35} axisLine={{stroke:"#34465c"}} tickLine={false}/><YAxis tick={{fill:"#8091a8",fontSize:10}} axisLine={false} tickLine={false} width={58}/><Tooltip contentStyle={{background:"#101b29",border:"1px solid #34465c",borderRadius:8,color:"#e8eef7",fontSize:11}}/><Bar dataKey="volume" name="Volume" fill="#477fbd" opacity={0.75}/></ComposedChart></ResponsiveContainer></div>
+      </div>
+      <div className="panel-card trade-plan-panel">
+        <div className="card-head"><div><div className="eyebrow">TRADE PLANNING</div><h2>Conditional setup & risk calculator</h2></div></div>
+        <p className="detail-subtitle">Build an entry trigger, structural/ATR stop, R-multiple targets and risk-based quantity. This does not place orders.</p>
+        <div className="trade-plan-controls">
+          <label>Setup<select value={planSetup} onChange={e => setPlanSetup(e.target.value)}><option value="reversal">Reversal</option><option value="vcp">VCP candidate</option><option value="momentum">Momentum breakout</option></select></label>
+          <label>Trading capital (₹)<input type="number" min="1" value={capital} onChange={e => setCapital(e.target.value)}/></label>
+          <label>Risk per trade (%)<input type="number" min="0.01" max="5" step="0.05" value={riskPct} onChange={e => setRiskPct(e.target.value)}/></label>
+          <button className="button primary" onClick={() => void createPlan()} disabled={planBusy || !capital || Number(capital) <= 0 || !riskPct || Number(riskPct) <= 0 || Number(riskPct) > 5}>{planBusy ? <LoaderCircle className="spin" size={15}/> : <TrendingUp size={15}/>} Calculate plan</button>
+        </div>
+        {planError && <div className="notice error"><CircleAlert size={16}/>{planError}</div>}
+        {plan && <div className="trade-plan-result">
+          <div className="notice warning"><b>{plan.status.replaceAll("_", " ").toUpperCase()}</b><span> · Scanner {plan.scanner.score}/100 · {plan.scanner.passed ? "All scanner conditions passed" : "Scanner conditions not met"}</span></div>
+          <div className="indicator-grid">
+            <Indicator label="Entry trigger" value={rupee(plan.entry_trigger)} note={`${plan.trigger_distance_pct}% from latest close`}/>
+            <Indicator label="Stop-loss" value={rupee(plan.stop_loss)} note={`${plan.stop_distance_pct}% risk distance`}/>
+            <Indicator label="Risk / share" value={rupee(plan.risk_per_share)} note="Entry minus stop"/>
+            <Indicator label="Suggested quantity" value={plan.sizing.quantity.toLocaleString("en-IN")} note={`Position ${rupee(plan.sizing.estimated_position_value)}`}/>
+            <Indicator label="Target 1 · 1.5R" value={rupee(plan.targets.target_1_1_5R)} note="First objective"/>
+            <Indicator label="Target 2 · 2R" value={rupee(plan.targets.target_2_2R)} note="Second objective"/>
+            <Indicator label="Target 3 · 3R" value={rupee(plan.targets.target_3_3R)} note="Third objective"/>
+            <Indicator label="Estimated risk" value={rupee(plan.sizing.estimated_risk)} note={`Budget ${rupee(plan.sizing.risk_budget)}`}/>
+          </div>
+          <p className="detail-subtitle">Trigger basis: {plan.trigger_basis}. Latest candle date: {plan.as_of}.</p>
+          {plan.scanner.failed_conditions.length > 0 && <p className="detail-subtitle">Conditions not met: {plan.scanner.failed_conditions.join(", ")}</p>}
+          <ul>{plan.assumptions.map(item => <li key={item}>{item}</li>)}</ul>
+        </div>}
       </div>
       <div className="notice warning"><TrendingUp size={17}/><div><b>Indicator interpretation</b><p>Indicators describe historical price and volume behaviour; they are not trade instructions. The trend line shown is a 20-day simple average for chart reference. EMA values above are calculated by the backend.</p></div></div>
     </>}
