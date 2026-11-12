@@ -41,14 +41,21 @@ def evaluate_historical_market_filter(
                 regime = classify_market_regime(benchmark_history)
             breadth = calculate_market_breadth(aligned, expected_symbols=expected_symbols) if aligned else None
             date_sector_map = {
-                row["symbol"]: row.get("sector") or "Unclassified"
+                row["symbol"]: row.get("sector", "")
                 for row in membership
+                if row.get("sector")
             } if membership_rows is not None else sector_by_symbol
             constituents = [
-                {"symbol": symbol, "sector": date_sector_map.get(symbol, "Unclassified")}
+                {"symbol": symbol, "sector": date_sector_map[symbol]}
                 for symbol in aligned
+                if symbol in date_sector_map
             ]
-            sectors = calculate_sector_strength(constituents, aligned, benchmark_history) if len(benchmark_history) >= 21 and str(benchmark_history.index[-1].date()) == signal_date else None
+            sectors = (
+                calculate_sector_strength(constituents, aligned, benchmark_frame)
+                if len(constituents) >= 2 and len(benchmark_frame) >= 21
+                and str(benchmark_frame.index[-1].date()) == signal_date
+                else None
+            )
             snapshot = calculate_market_intelligence(regime, breadth, sectors)
             if breadth:
                 snapshot["data_completeness_pct"] = min(snapshot["data_completeness_pct"], breadth["coverage_pct"])
