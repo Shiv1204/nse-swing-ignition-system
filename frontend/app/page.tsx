@@ -19,8 +19,8 @@ type ScanRow = {
   rank_position?: number;
 };
 type Pipeline = {
-  universe_count?: number; ranked_count?: number; shortlist_count?: number;
-  shortlist?: ScanRow[]; ranked?: ScanRow[]; errors?: {symbol:string;error:string}[];
+  universe_count?: number; symbols_ranked?: number; shortlist_count?: number;
+  shortlist?: ScanRow[]; all_ranked?: ScanRow[]; errors?: {symbol:string;error:string}[];
   notes?: string[];
 };
 
@@ -100,7 +100,7 @@ export default function Dashboard() {
   };
 
   const rows = useMemo(() => {
-    const source = pipeline?.shortlist || pipeline?.ranked || [];
+    const source = pipeline?.shortlist || pipeline?.all_ranked || [];
     return source.filter(row => row.symbol.toLowerCase().includes(symbolSearch.toLowerCase()));
   }, [pipeline, symbolSearch]);
 
@@ -146,7 +146,7 @@ export default function Dashboard() {
           {tab === "overview" && <>
             <div className="metric-grid">
               <Metric icon={<Gauge size={18}/>} label="Universe loaded" value={pipeline?.universe_count?.toString() || "—"} hint="Verified constituents"/>
-              <Metric icon={<Activity size={18}/>} label="Stocks ranked" value={pipeline?.ranked_count?.toString() || "—"} hint="Daily data available"/>
+              <Metric icon={<Activity size={18}/>} label="Stocks ranked" value={pipeline?.symbols_ranked?.toString() || "—"} hint="Daily data available"/>
               <Metric icon={<Target size={18}/>} label="Shortlisted" value={pipeline?.shortlist_count?.toString() || "—"} hint="Score ≥ 60 + setup pass"/>
               <Metric icon={<Clock3 size={18}/>} label="Holding horizon" value="3–10 days" hint="Research objective"/>
             </div>
