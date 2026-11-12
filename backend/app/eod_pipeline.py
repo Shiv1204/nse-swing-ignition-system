@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from backend.app.market_data import MarketDataStore
+from backend.app.market_regime import classify_market_regime
 from backend.app.scanners import run_scanner
 from backend.app.scoring import rank_stock
 from backend.app.universe import load_universe
@@ -92,9 +93,27 @@ def run_eod_pipeline(
     for position, item in enumerate(ranked, start=1):
         item["rank_position"] = position
 
+    benchmark_bars = store.get_bars("^NSEI", "1d", limit=1000)
+    market_regime = None
+    if len(benchmark_bars) >= 210:
+        benchmark_frame = pd.DataFrame(
+            [{key: bar[key] for key in ("open", "high", "low", "close", "volume")} for bar in benchmark_bars],
+            index=pd.DatetimeIndex([bar["timestamp"] for bar in benchmark_bars], name="timestamp"),
+        )
+        try:
+            market_regime = classify_market_regime(benchmark_frame)
+        except ValueError:
+            market_regime = None
+
+    # A bearish benchmark blocks new long-only shortlist entries. Sideways
+    # conditions raise the minimum score; unavailable benchmark data is
+    # explicitly disclosed and does not silently claim regime confirmation.
+    minimum_score = 70 if market_regime and market_regime["regime"] == "sideways" else 60
     shortlist = [
         item for item in ranked
-        if item["ranking"]["score"] >= 60 and item["passed_setups"]
+        if item["ranking"]["score"] >= minimum_score
+        and item["passed_setups"]
+        and not (market_regime and market_regime["regime"] == "bearish")
     ][:shortlist_limit]
 
     return {
@@ -109,12 +128,20 @@ def run_eod_pipeline(
         "symbols_ranked": len(ranked),
         "symbols_without_usable_history": len(data_errors),
         "data_errors": data_errors,
+        "market_regime": market_regime,
+        "market_regime_filter": {
+            "status": market_regime["regime"] if market_regime else "unavailable",
+            "minimum_score": minimum_score,
+            "new_long_entries_blocked": bool(market_regime and market_regime["regime"] == "bearish"),
+            "note": "Bearish regime blocks new long shortlist candidates; sideways regime raises minimum score to 70. If benchmark data is unavailable, the legacy score>=60 shortlist is shown with no regime confirmation.",
+        },
         "shortlist_count": len(shortlist),
         "shortlist": shortlist,
         "all_ranked": ranked,
         "notes": [
             "Research-only output; ranking scores are heuristic and are not probabilities of profit.",
-            "Sector-relative-strength points are unavailable until benchmark/sector data is integrated.",
+            "Sector-relative-strength points are unavailable until sector histories are integrated.",
+            "The Nifty 50 market-regime filter blocks new long shortlist candidates in bearish conditions and raises the score threshold to 70 in sideways conditions. It requires at least 210 stored Nifty daily candles.",
             "Only completed daily candles should be used; verify the latest candle timestamp before acting.",
             "Yahoo Finance is an unofficial data source and may throttle or omit symbols.",
             "No trade orders are placed by this pipeline.",
