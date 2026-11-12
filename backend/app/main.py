@@ -5,6 +5,7 @@ import pandas as pd
 from backend.app.config import get_settings
 from backend.app.backtesting import backtest_symbol
 from backend.app.portfolio_backtesting import chronological_split, simulate_portfolio
+from backend.app.trade_planning import build_trade_plan
 from backend.app.indicators import calculate_indicators
 from backend.app.eod_pipeline import run_eod_pipeline
 from backend.app.market_data import MarketDataStore
@@ -21,6 +22,7 @@ from backend.app.schemas import (
     RankingRequest,
     UniverseScanRequest,
     YahooBatchSyncRequest,
+    TradePlanRequest,
 )
 
 settings = get_settings()
@@ -316,6 +318,28 @@ def scan_universe(request: UniverseScanRequest) -> dict:
         ),
     }
 
+
+
+@app.post("/api/v1/trade-plan", tags=["trade-planning"])
+def create_trade_plan(request: TradePlanRequest) -> dict:
+    """Build a conditional entry/stop/target/quantity plan from stored daily bars."""
+    bars = get_market_data_store().get_bars(request.symbol, "1d", limit=1000)
+    if not bars:
+        raise HTTPException(status_code=404, detail="No stored daily candles; sync or import daily history first.")
+    frame = pd.DataFrame(
+        [{key: bar[key] for key in ("open", "high", "low", "close", "volume")} for bar in bars],
+        index=pd.DatetimeIndex([bar["timestamp"] for bar in bars], name="timestamp"),
+    )
+    try:
+        return build_trade_plan(
+            request.symbol, frame, request.setup,
+            capital=request.capital,
+            risk_per_trade_pct=request.risk_per_trade_pct,
+            max_allocation_pct=request.max_allocation_pct,
+            stop_atr_multiple=request.stop_atr_multiple,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/api/v1/backtest", tags=["backtesting"])
