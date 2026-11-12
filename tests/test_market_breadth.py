@@ -32,7 +32,7 @@ def test_market_breadth_reports_empty_coverage():
 def test_market_breadth_coverage_uses_expected_constituent_count():
     result = calculate_market_breadth({"AAA": history()}, expected_symbols=["AAA", "BBB", "CCC"])
     assert result["symbols_available"] == 1
-    assert result["symbols_with_history"] == 3
+    assert result["symbols_with_history"] == 1
     assert result["coverage_pct"] == 33.33
 
 
