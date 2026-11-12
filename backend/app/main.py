@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
@@ -6,7 +8,7 @@ from backend.app.config import get_settings
 from backend.app.backtesting import backtest_symbol
 from backend.app.portfolio_backtesting import chronological_split, simulate_portfolio
 from backend.app.historical_market_filter import evaluate_historical_market_filter
-from backend.app.membership_history import load_membership_history
+from backend.app.membership_history import load_membership_history, members_on_date
 from backend.app.trade_planning import build_trade_plan
 from backend.app.indicators import calculate_indicators
 from backend.app.eod_pipeline import run_eod_pipeline
@@ -427,6 +429,23 @@ def run_historical_backtest(request: BacktestRequest) -> dict:
             "survivorship-free historical universe membership, execution assumptions and costs. "
             "Signals are evaluated at close and entered next session open; no live orders are placed."
         ),
+    }
+
+
+@app.get("/api/v1/universe/membership", tags=["universe"])
+def get_historical_membership(as_of_date: str = Query(..., description="Date in YYYY-MM-DD format")) -> dict:
+    """Return verified index members active on a requested historical date."""
+    try:
+        target = date.fromisoformat(as_of_date)
+        rows = load_membership_history()
+        members = members_on_date(rows, target)
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "as_of_date": target.isoformat(),
+        "member_count": len(members),
+        "membership_source_rows": len(rows),
+        "members": members,
     }
 
 
