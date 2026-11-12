@@ -452,7 +452,7 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
                 target_pct=request.target_pct,
                 stop_atr_multiple=request.stop_atr_multiple,
                 max_holding_sessions=request.max_holding_sessions,
-                cost_bps_per_side=request.cost_bps_per_side,
+                cost_bps_per_side=(0.0 if request.cost_model == "india_equity_delivery" else request.cost_bps_per_side),
             )
             candidate_trades.extend(result["trades"])
         except (ValueError, KeyError) as exc:
