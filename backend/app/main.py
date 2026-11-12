@@ -498,12 +498,22 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
                 minimum_completeness_pct=request.market_minimum_completeness_pct,
                 membership_rows=membership_rows,
             )
-            filtered_split = chronological_split(evaluation["accepted_trades"], request.train_fraction)
+            if split["split_date"] is None:
+                filtered_split = {"train": evaluation["accepted_trades"], "test": [], "split_date": None}
+            else:
+                filtered_split = {
+                    "train": [trade for trade in evaluation["accepted_trades"] if trade["entry_date"] < split["split_date"] and trade["exit_date"] < split["split_date"]],
+                    "test": [trade for trade in evaluation["accepted_trades"] if trade["entry_date"] >= split["split_date"]],
+                    "split_date": split["split_date"],
+                }
             filtered_comparison = {
                 "status": "evaluated",
                 "score_threshold": request.market_score_threshold,
                 "minimum_completeness_pct": request.market_minimum_completeness_pct,
                 "snapshots_calculated": evaluation["snapshots_calculated"],
+                "split_date": filtered_split["split_date"],
+                "membership_history_available": membership_rows is not None,
+                "membership_history_rows": len(membership_rows) if membership_rows is not None else 0,
                 "trades_excluded": len(evaluation["excluded_trades"]),
                 "exclusion_reasons": {
                     "insufficient_market_data": sum(x["reason"] == "insufficient_market_data" for x in evaluation["excluded_trades"]),
