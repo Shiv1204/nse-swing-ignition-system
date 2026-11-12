@@ -19,7 +19,8 @@ type TradePlan = {
   targets: Record<string, number>;
   sizing: { capital: number; risk_per_trade_pct: number; risk_budget: number;
     max_allocation_pct: number; quantity: number; estimated_position_value: number; estimated_risk: number };
-  scanner: { passed: boolean; score: number; reasons: string[]; failed_conditions: string[] };\n  hourly_confirmation: { status: string; bars_available: number; required_bars: number; passed: boolean; checks: Record<string, boolean>; failed_conditions: string[]; note: string };
+  scanner: { passed: boolean; score: number; reasons: string[]; failed_conditions: string[] };
+  hourly_confirmation: { status: string; bars_available: number; required_bars: number; passed: boolean; checks: Record<string, boolean>; failed_conditions: string[]; note: string };
   assumptions: string[];
 };
 
