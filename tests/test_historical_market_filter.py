@@ -30,3 +30,25 @@ def test_filter_uses_only_history_available_on_signal_date():
     assert result["trades"][0]["market_intelligence"]["score"] is not None
     assert result["trades"][0]["market_intelligence"]["data_completeness_pct"] == 100
     assert len(result["accepted_trades"]) == 1
+
+def test_filter_uses_point_in_time_members_and_penalizes_missing_histories(tmp_path):
+    from backend.app.membership_history import load_membership_history
+    membership_file = tmp_path / "members.csv"
+    membership_file.write_text(
+        "symbol,sector,valid_from,valid_to,source,as_of_date\\n"
+        "AAA,,2020-01-01,,press_release,2026-11-02\\n"
+        "BBB,,2020-01-01,,press_release,2026-11-02\\n"
+        "CCC,,2020-01-01,,press_release,2026-11-02\\n",
+        encoding="utf-8",
+    )
+    membership = load_membership_history(membership_file)
+    history = rising_history()
+    signal_date = str(history.index[-1].date())
+    trade = {"symbol": "AAA", "signal_date": signal_date, "entry_date": signal_date, "exit_date": signal_date}
+    result = evaluate_historical_market_filter(
+        [trade], {"AAA": history, "BBB": history.copy()}, history, {},
+        score_threshold=0, minimum_completeness_pct=80, membership_rows=membership,
+    )
+    intelligence = result["trades"][0]["market_intelligence"]
+    assert intelligence["data_completeness_pct"] == 66.67
+    assert result["excluded_trades"][0]["reason"] == "insufficient_market_data"
