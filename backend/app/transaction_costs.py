@@ -18,6 +18,19 @@ def estimate_delivery_costs(
     """Estimate costs for one buy and one sell; rates are percentages unless named bps."""
     if min(buy_value, sell_value) < 0:
         raise ValueError("Trade values cannot be negative")
+    rate_values = {
+        "brokerage_pct": brokerage_pct,
+        "brokerage_cap_per_order": brokerage_cap_per_order,
+        "exchange_transaction_pct": exchange_transaction_pct,
+        "stt_pct_each_side": stt_pct_each_side,
+        "stamp_duty_pct_buy": stamp_duty_pct_buy,
+        "sebi_pct_each_side": sebi_pct_each_side,
+        "gst_pct": gst_pct,
+        "dp_charge_per_sell_order": dp_charge_per_sell_order,
+        "slippage_bps_each_side": slippage_bps_each_side,
+    }
+    if any(value < 0 for value in rate_values.values()):
+        raise ValueError("Cost rates and charges cannot be negative")
     brokerage_buy = min(buy_value * brokerage_pct / 100, brokerage_cap_per_order)
     brokerage_sell = min(sell_value * brokerage_pct / 100, brokerage_cap_per_order)
     transaction = (buy_value + sell_value) * exchange_transaction_pct / 100
@@ -43,5 +56,16 @@ def estimate_delivery_costs(
         "buy_value": round(buy_value, 2),
         "sell_value": round(sell_value, 2),
         "effective_cost_bps": round(sum(components.values()) / buy_value * 10000, 2) if buy_value else 0.0,
-        "assumptions": "Illustrative NSE cash-equity delivery estimate. Rates must be checked against the chosen broker and effective date; DP charge defaults to zero because it is broker-specific. Slippage is a configurable model assumption, not an exchange fee.",
+        "rate_inputs": rate_values,
+        "assumptions": (
+            "Illustrative NSE cash-equity delivery estimate. Statutory rate defaults are based on NSE's "
+            "published levies page and the exchange transaction rate shown on Zerodha's public charges page "
+            "as reviewed on 2026-11-12. Confirm the applicable rate, broker plan, exchange, trade date, "
+            "rounding and per-order minimums before relying on this estimate. DP charge defaults to zero "
+            "because it is broker-specific. Slippage is a configurable model assumption, not an exchange fee."
+        ),
+        "references": [
+            "https://www.nseindia.com/static/invest/first-time-investor-sebi-turnover-fees-stt-other-levies",
+            "https://zerodha.com/charges/",
+        ],
     }
