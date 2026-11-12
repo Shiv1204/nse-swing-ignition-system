@@ -44,11 +44,11 @@ def backtest_symbol(
     while i < len(frame) - 1:
         history = data.iloc[: i + 1]
         signal = run_scanner(setup, symbol, history)
-        ranking = rank_stock(symbol, history)
         atr_value = frame["atr_14"].iloc[i]
         if not signal.passed or pd.isna(atr_value) or atr_value <= 0:
             i += 1
             continue
+        ranking = rank_stock(symbol, history)
 
         entry_i = i + 1
         entry = float(frame["open"].iloc[entry_i])
