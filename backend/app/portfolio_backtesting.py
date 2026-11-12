@@ -93,6 +93,7 @@ def simulate_portfolio(
             "risk_budget": risk_budget,
             "risk_amount": quantity * risk_per_share,
             "transaction_costs": cost_breakdown,
+            "cost_model": cost_model,
         })
 
     for position in active:
@@ -130,11 +131,22 @@ def simulate_portfolio(
             elif position["entry_date"] <= date:
                 marks = [m for m in position.get("mark_to_market", []) if m["date"] <= date]
                 mark_price = float(marks[-1]["close"]) if marks else float(position["entry_price"])
-                cost_rate = float(position.get("cost_bps_per_side", 10.0)) / 10000
-                marked_return = (
-                    (mark_price * (1 - cost_rate)) /
-                    (float(position["entry_price"]) * (1 + cost_rate)) - 1
-                )
+                if position.get("cost_model") == "india_equity_delivery":
+                    mark_costs = estimate_delivery_costs(
+                        position["deployed"],
+                        float(position["quantity"]) * mark_price,
+                        **(delivery_cost_settings or {}),
+                    )["total_cost"]
+                    marked_return = (
+                        float(position["quantity"]) * mark_price
+                        - position["deployed"] - mark_costs
+                    ) / position["deployed"]
+                else:
+                    cost_rate = float(position.get("cost_bps_per_side", 10.0)) / 10000
+                    marked_return = (
+                        (mark_price * (1 - cost_rate)) /
+                        (float(position["entry_price"]) * (1 + cost_rate)) - 1
+                    )
                 equity += position["deployed"] * marked_return
         peak = max(peak, equity)
         max_drawdown = max(max_drawdown, (peak - equity) / peak if peak else 0.0)
