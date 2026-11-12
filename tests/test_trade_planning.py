@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backend.app.trade_planning import build_trade_plan
+from backend.app.trade_planning import build_trade_plan, evaluate_hourly_confirmation
 
 
 def make_bars(rows=260):
@@ -39,3 +39,23 @@ def test_trade_plan_rejects_short_history_and_invalid_risk():
         build_trade_plan("abc", make_bars(100), "reversal")
     with pytest.raises(ValueError, match="risk_per_trade_pct"):
         build_trade_plan("abc", make_bars(), "reversal", risk_per_trade_pct=0)
+
+
+def test_hourly_confirmation_requires_60_bars():
+    short = evaluate_hourly_confirmation(make_bars(40))
+    assert short["status"] == "unavailable"
+    assert short["passed"] is False
+
+
+def test_hourly_confirmation_reports_all_five_checks():
+    result = evaluate_hourly_confirmation(make_bars(100))
+    assert result["status"] in {"confirmed", "not_confirmed"}
+    assert len(result["checks"]) == 5
+    assert result["passed"] == (len(result["failed_conditions"]) == 0)
+
+
+def test_trade_plan_waits_when_hourly_data_is_missing():
+    result = build_trade_plan("abc", make_bars(), "momentum")
+    assert result["hourly_confirmation"]["status"] == "unavailable"
+    if result["scanner"]["passed"] and result["status"] != "trigger_already_crossed":
+        assert result["status"] == "waiting_for_hourly_data"
