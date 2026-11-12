@@ -13,7 +13,7 @@ from backend.app.trade_planning import build_trade_plan
 from backend.app.indicators import calculate_indicators
 from backend.app.eod_pipeline import run_eod_pipeline
 from backend.app.market_data import MarketDataStore
-from backend.app.data_quality import audit_market_data
+from backend.app.data_quality import audit_market_data\nfrom backend.app.paper_trading import place_paper_order, get_paper_portfolio
 from backend.app.market_regime import classify_market_regime
 from backend.app.scanners import run_scanner
 from backend.app.scoring import rank_stock
@@ -29,7 +29,7 @@ from backend.app.schemas import (
     UniverseScanRequest,
     YahooBatchSyncRequest,
     TradePlanRequest,
-    MarketRegimeRequest,
+    MarketRegimeRequest,\n    PaperOrderRequest,
 )
 
 settings = get_settings()
@@ -638,3 +638,21 @@ def audit_stored_market_data(timeframe: str = Query(default="1d", pattern="^(1h|
     except (ValueError, FileNotFoundError):
         pass
     return audit_market_data(settings.database_path, expected_symbols=expected_symbols, timeframe=timeframe)
+
+
+@app.post("/api/v1/paper-trading/orders", tags=["paper-trading"])
+def create_paper_order(request: PaperOrderRequest) -> dict:
+    """Record a simulated cash-equity buy/sell using a user-supplied assumed fill."""
+    try:
+        return place_paper_order(
+            settings.database_path, request.symbol, request.side, request.quantity,
+            request.assumed_fill_price, request.initial_capital, request.note,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/paper-trading/portfolio", tags=["paper-trading"])
+def read_paper_portfolio(initial_capital: float = Query(default=1_000_000, gt=0)) -> dict:
+    """Read the local simulated portfolio and its latest 100 ledger entries."""
+    return get_paper_portfolio(settings.database_path, initial_capital)
