@@ -11,7 +11,8 @@ const API = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").re
 
 type BarData = { timestamp: string; open: number; high: number; low: number; close: number; volume: number };
 type Indicators = Record<string, number | null>;
-type DetailResponse = { symbol: string; bars: BarData[]; latest: Indicators; note?: string };
+type ChartBar = BarData & { date: string; ema20?: number | null };
+type DetailResponse = { symbol: string; bars: ChartBar[]; latest: Indicators; note?: string };
 
 const fmt = (n?: number | null) => n == null || !Number.isFinite(n) ? "—" : n.toFixed(2);
 const rupee = (n?: number | null) => n == null ? "—" : new Intl.NumberFormat("en-IN", {style:"currency",currency:"INR",maximumFractionDigits:2}).format(n);
@@ -20,6 +21,7 @@ export default function StockDetail({ symbol, onBack }: { symbol: string; onBack
   const [data, setData] = useState<DetailResponse | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
+  const [syncBusy, setSyncBusy] = useState(false);
 
   const load = async () => {
     setBusy(true); setError("");
@@ -41,8 +43,8 @@ export default function StockDetail({ symbol, onBack }: { symbol: string; onBack
         date: new Date(bar.timestamp).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
         ema20: index >= 19 ? bars.slice(index - 19, index + 1).reduce((sum, item) => sum + item.close, 0) / 20 : null,
       }));
-      // Display a 20-day simple average overlay as a visual guide; backend EMA values remain in the indicator cards.
-      setData({ symbol, bars: chart as BarData[], latest, note: indicatorPayload.note });
+      // The chart overlay is a 20-day simple average; EMA20 is separately shown from the backend.
+      setData({ symbol, bars: chart, latest, note: indicatorPayload.note });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load stock detail");
       setData(null);
@@ -54,18 +56,15 @@ export default function StockDetail({ symbol, onBack }: { symbol: string; onBack
   const last = data?.bars[data.bars.length - 1];
   const previous = data?.bars[data.bars.length - 2];
   const change = last && previous ? ((last.close / previous.close) - 1) * 100 : null;
-  const chartData = useMemo(() => data?.bars.map((bar, index, all) => ({
-    ...bar,
-    ema20: index >= 19 ? all.slice(index - 19, index + 1).reduce((sum, item) => sum + item.close, 0) / 20 : null,
-  })) || [], [data]);
+  const chartData = useMemo(() => data?.bars || [], [data]);
 
   return <div className="stock-detail">
     <div className="detail-toolbar">
       <button className="button secondary" onClick={onBack}><ArrowLeft size={15}/> Back to scanner</button>
-      <button className="button secondary" onClick={() => void load()} disabled={busy}>{busy ? <LoaderCircle className="spin" size={15}/> : <RefreshCw size={15}/>} Refresh data</button>
+      <button className="button secondary" onClick={() => void load()} disabled={busy || syncBusy}>{busy ? <LoaderCircle className="spin" size={15}/> : <RefreshCw size={15}/>} Refresh data</button>
     </div>
     {busy && <div className="detail-loading"><LoaderCircle className="spin" size={22}/> Loading {symbol} daily history and indicators…</div>}
-    {error && <div className="notice error"><CircleAlert size={18}/><div><b>Stock data unavailable</b><p>{error}</p></div></div>}
+    {error && <div className="notice error"><CircleAlert size={18}/><div><b>Stock data unavailable</b><p>{error}</p><button className="button secondary sync-button" disabled={syncBusy} onClick={async () => { setSyncBusy(true); try { const response = await fetch(`${API}/api/v1/market-data/sync/${encodeURIComponent(symbol)}?timeframe=1d&period=5y`, { method: "POST" }); const payload = await response.json(); if (!response.ok) throw new Error(payload.detail || "History sync failed"); await load(); } catch (e) { setError(e instanceof Error ? e.message : "History sync failed"); } finally { setSyncBusy(false); } }}>{syncBusy ? <LoaderCircle className="spin" size={14}/> : <RefreshCw size={14}/>} Sync 5 years of daily history</button></div></div>}
     {data && !busy && <>
       <div className="detail-title-row">
         <div><div className="eyebrow">NSE · DAILY CHART · {data.bars.length} CANDLES</div><h2>{symbol}</h2><p className="detail-subtitle">Latest stored adjusted daily OHLCV data</p></div>
