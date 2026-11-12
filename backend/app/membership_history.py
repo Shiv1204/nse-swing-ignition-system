@@ -1,4 +1,4 @@
-"""Point-in-time index membership history loader."""
+"""Point-in-time index membership loader using half-open [from, to) intervals."""
 from __future__ import annotations
 
 import csv
@@ -39,7 +39,7 @@ def load_membership_history(path: str | Path = "data/universe/nse500_membership_
     for symbol, intervals in by_symbol.items():
         intervals.sort(key=lambda item: item["_start"])
         for previous, current in zip(intervals, intervals[1:]):
-            if previous["_end"] is None or previous["_end"] >= current["_start"]:
+            if previous["_end"] is None or previous["_end"] > current["_start"]:
                 raise ValueError(f"Overlapping membership intervals for {symbol}")
     return rows
 
@@ -49,5 +49,5 @@ def members_on_date(rows: list[dict], as_of: str | date) -> list[dict]:
     return [
         {key: value for key, value in row.items() if not key.startswith("_")}
         for row in rows
-        if row["_start"] <= target and (row["_end"] is None or target <= row["_end"])
+        if row["_start"] <= target and (row["_end"] is None or target < row["_end"])
     ]
