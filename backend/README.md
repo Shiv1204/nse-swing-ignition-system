@@ -204,3 +204,22 @@ python -m scripts.import_nse_bhavcopy /path/to/nse_bhavcopies --directory --patt
 Use --pattern "*.csv" for extracted CSVs. The importer is idempotent and reports imported symbols, dates, rows and rejected records. It does not download files automatically or bypass NSE access controls. For a 2020–2026 history, download the daily bhavcopies in manageable yearly/monthly batches and retain the original files and retrieval notes.
 
 **Corporate-action warning:** NSE bhavcopy OHLC is raw exchange data. Splits, bonuses, rights, mergers and symbol/ISIN changes must be reconciled before calculating long-history returns. The project must not mix raw NSE bars with auto-adjusted Yahoo bars for the same instrument. Store the source and adjustment methodology with each research dataset.
+
+### Point-in-time membership source adapter
+
+A candidate public reconstruction is [aditya-jha/nse-historical-membership](https://github.com/aditya-jha/nse-historical-membership). Its data is dedicated under CC0, and it documents its provenance, half-open interval semantics, known pre-2018 cardinality drift, and validation results. It is third-party reconstructed data, not an official NSE constituent history. Review its current README and validation report before use.
+
+The repository's headline file is `index_history/data/index_membership_history.csv`. Convert it to the NSIS format with:
+```bash
+python -m scripts.convert_nse_membership_history /path/to/index_membership_history.csv --as-of-date 2026-11-02
+```
+
+The adapter keeps only Nifty 500 rows and converts the source's half-open `[valid_from, valid_to)` intervals into NSIS inclusive end dates. It retains each source label, source URL, notes and a confidence flag. `snapshot_floor` / inferred intervals are explicitly marked lower confidence. The source export does not provide historical sector classifications in this table, so the historical filter omits the sector-strength component rather than pretending current sectors are historical sectors.
+
+Before using the result in strategy evaluation, check daily member counts, known additions/removals, ticker and ISIN migrations, and all `snapshot_floor_or_inferred` intervals. The project intentionally does not ship this third-party file as verified ground truth; the user must obtain and review the source export separately.
+
+### Historical data source findings
+
+NSE's official [All Reports](https://www.nseindia.com/all-reports) portal provides daily cash-market reports. The official catalogue states the old CM bhavcopy formats were discontinued from 8 July 2024 and replaced with the UDiFF common bhavcopy. The importer accepts UDiFF files and the older `sec_bhavdata_full` / legacy equity CSV header variants. For 2020–2026, `sec_bhavdata_full` is a practical daily bulk source where available; UDiFF is the current format from July 2024. Keep downloaded raw files so the source data can be reprocessed and audited.
+
+**Do not treat the current NSE 500 list as historical membership.** The membership file and OHLCV history are separate datasets and both need date-level validation before a survivorship-bias-free backtest is considered ready.
