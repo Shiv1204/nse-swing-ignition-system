@@ -330,6 +330,13 @@ def create_trade_plan(request: TradePlanRequest) -> dict:
         [{key: bar[key] for key in ("open", "high", "low", "close", "volume")} for bar in bars],
         index=pd.DatetimeIndex([bar["timestamp"] for bar in bars], name="timestamp"),
     )
+    hourly_bars = get_market_data_store().get_bars(request.symbol, "1h", limit=500)
+    hourly_frame = None
+    if hourly_bars:
+        hourly_frame = pd.DataFrame(
+            [{key: bar[key] for key in ("open", "high", "low", "close", "volume")} for bar in hourly_bars],
+            index=pd.DatetimeIndex([bar["timestamp"] for bar in hourly_bars], name="timestamp"),
+        )
     try:
         return build_trade_plan(
             request.symbol, frame, request.setup,
@@ -337,6 +344,7 @@ def create_trade_plan(request: TradePlanRequest) -> dict:
             risk_per_trade_pct=request.risk_per_trade_pct,
             max_allocation_pct=request.max_allocation_pct,
             stop_atr_multiple=request.stop_atr_multiple,
+            hourly_data=hourly_frame,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
