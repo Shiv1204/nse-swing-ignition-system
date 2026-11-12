@@ -156,3 +156,8 @@ This is a constituent-based proxy, not an official sector-index series. It can b
 ### Market breadth and participation
 
 The EOD pipeline reports breadth for configured universe constituents with at least 201 daily candles: advances/declines, the percentage above 20/50/200-day simple moving averages, and new 20-session highs/lows. The dashboard displays these metrics alongside sector strength and the Nifty 50 regime. This is equal-weight constituent breadth, not an official exchange advance/decline series. Coverage and candle dates matter: missing symbols or mismatched last dates can distort the snapshot. Breadth is currently informational and does not independently block trades or alter ranking scores.
+
+
+### Consolidated market intelligence score
+
+The EOD pipeline returns a 0–100 market intelligence score and a status (favorable, mixed, unfavorable, insufficient_data, or unavailable). The transparent weighting is: Nifty 50 regime 40 points; breadth 40 points (stocks above SMA 50 and SMA 200, daily advances/declines, and 20-session highs/lows); sector participation 20 points (share of calculated sectors outperforming Nifty 50). The score is normalized over available components, and data completeness is reported separately. A score based on fewer than 50 available points is marked insufficient_data. This is a research heuristic only; it does not alter stock rankings, shortlist rules, or order execution.
