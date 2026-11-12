@@ -124,6 +124,11 @@ class PortfolioBacktestRequest(BaseModel):
     delivery_brokerage_pct: float = Field(default=0.0, ge=0, le=1)
     delivery_brokerage_cap: float = Field(default=20.0, ge=0, le=1000)
     delivery_dp_charge: float = Field(default=0.0, ge=0, le=1000)
+    delivery_exchange_transaction_pct: float = Field(default=0.00307, ge=0, le=1)
+    delivery_stt_pct_each_side: float = Field(default=0.1, ge=0, le=1)
+    delivery_stamp_duty_pct_buy: float = Field(default=0.015, ge=0, le=1)
+    delivery_sebi_pct_each_side: float = Field(default=0.0001, ge=0, le=1)
+    delivery_gst_pct: float = Field(default=18.0, ge=0, le=100)
     delivery_slippage_bps_each_side: float = Field(default=5.0, ge=0, le=500)
     market_filter_enabled: bool = True
     market_score_threshold: int = Field(default=65, ge=0, le=100)
