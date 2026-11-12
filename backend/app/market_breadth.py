@@ -30,11 +30,14 @@ def calculate_market_breadth(histories: dict[str, pd.DataFrame], lookback: int =
     total = len(eligible)
     def pct(value: int) -> float | None:
         return round(value / total * 100, 2) if total else None
+    expected_count = len(set(s.upper() for s in expected_symbols)) if expected_symbols is not None else len(histories)
+    histories_present = sum(1 for symbol in (expected_symbols if expected_symbols is not None else histories) if symbol in histories)
     return {
         "as_of": max((str(histories[symbol].index[-1].date()) for symbol in eligible), default=None),
         "symbols_available": total,
-        "symbols_with_history": len(expected_symbols if expected_symbols is not None else histories),
-        "coverage_pct": round(total / len(expected_symbols if expected_symbols is not None else histories) * 100, 2) if (expected_symbols if expected_symbols is not None else histories) else 0.0,
+        "symbols_expected": expected_count,
+        "symbols_with_history": histories_present,
+        "coverage_pct": round(total / expected_count * 100, 2) if expected_count else 0.0,
         "advances": advances, "declines": declines, "unchanged": unchanged,
         "advance_decline_ratio": round(advances / declines, 2) if declines else (None if not advances else "infinite"),
         "above_sma20": above_20, "above_sma20_pct": pct(above_20),
