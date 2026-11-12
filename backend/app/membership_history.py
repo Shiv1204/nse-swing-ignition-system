@@ -30,6 +30,8 @@ def load_membership_history(path: str | Path = "data/universe/nse500_membership_
             row["_start"] = start
             row["_end"] = end
             rows.append(row)
+    if not rows:
+        raise ValueError("Membership history CSV is empty; add verified dated constituent intervals before using point-in-time coverage.")
     by_symbol: dict[str, list[dict]] = {}
     for row in rows:
         by_symbol.setdefault(row["symbol"], []).append(row)
