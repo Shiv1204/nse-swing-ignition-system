@@ -23,7 +23,7 @@ def convert(source_path: Path, output_path: Path, as_of_date: str) -> dict:
             # Source uses half-open [valid_from, valid_to); NSIS stores inclusive valid_to.
             end = (date.fromisoformat(raw_end) - timedelta(days=1)).isoformat() if raw_end else ""
             if end and date.fromisoformat(end) < start:
-                raise ValueError(f"Invalid membership interval for {row[chr(115)+chr(121)+chr(109)+chr(98)+chr(111)+chr(108)]}")
+                raise ValueError("Invalid membership interval for " + row["symbol"])
             provenance = (row.get("source") or "unspecified").strip()
             confidence = "exact_event_date" if provenance in {"press_release", "circular", "merger"} else "snapshot_floor_or_inferred"
             confidence_counts[confidence] += 1
