@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import StockDetail from "../components/StockDetail";
 import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, Bell, CandlestickChart,
   CheckCircle2, ChevronDown, CircleAlert, Clock3, Command, Gauge, LayoutDashboard,
@@ -41,6 +42,7 @@ export default function Dashboard() {
   const [pipelineError, setPipelineError] = useState("");
   const [setup, setSetup] = useState("momentum");
   const [symbolSearch, setSymbolSearch] = useState("");
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [backtestSymbols, setBacktestSymbols] = useState("RELIANCE,TCS,INFY");
   const [backtestResult, setBacktestResult] = useState<Record<string, unknown> | null>(null);
   const [backtestBusy, setBacktestBusy] = useState(false);
@@ -170,14 +172,15 @@ export default function Dashboard() {
             </div>
             <div className="panel-card table-card">
               <div className="card-head"><div><div className="eyebrow">LATEST RESULTS</div><h2>Priority watchlist</h2></div><button className="text-button" onClick={() => setTab("scanner")}>View scanner <ArrowUpRight size={14}/></button></div>
-              <Watchlist rows={rows.slice(0, 6)} emptyText="Run the EOD scan to populate your watchlist with actual backend results."/>
+              <Watchlist rows={rows.slice(0, 6)} emptyText="Run the EOD scan to populate your watchlist with actual backend results." onSelect={symbol => { setSelectedSymbol(symbol); setTab("scanner"); }}/>
             </div>
           </>}
 
-          {tab === "scanner" && <div className="panel-card table-card">
+          {tab === "scanner" && selectedSymbol && <StockDetail symbol={selectedSymbol} onBack={() => setSelectedSymbol(null)}/>}
+          {tab === "scanner" && !selectedSymbol && <div className="panel-card table-card">
             <div className="scanner-toolbar"><div><div className="eyebrow">NSE UNIVERSE</div><h2>Ranked candidates</h2></div><div className="toolbar-controls"><div className="search-box"><Search size={15}/><input value={symbolSearch} onChange={e => setSymbolSearch(e.target.value)} placeholder="Search symbol"/></div><button className="button secondary" disabled={!apiOnline || pipelineBusy} onClick={() => void runPipeline(false)}>{pipelineBusy ? <LoaderCircle className="spin" size={15}/> : <RefreshCw size={15}/>} Refresh scan</button></div></div>
             <div className="filter-row"><label>Setup focus</label><select value={setup} onChange={e => setSetup(e.target.value)}><option value="momentum">Momentum</option><option value="vcp">VCP</option><option value="reversal">Reversal</option></select><span className="filter-note">Results reflect the latest EOD pipeline response.</span></div>
-            <Watchlist rows={rows} emptyText="No scan results yet. Run the EOD scan after configuring the verified NSE 500 universe and loading daily candles."/>
+            <Watchlist rows={rows} emptyText="No scan results yet. Run the EOD scan after configuring the verified NSE 500 universe and loading daily candles." onSelect={symbol => setSelectedSymbol(symbol)}/>
           </div>}
 
           {tab === "backtest" && <div className="panel-card backtest-card">
@@ -209,7 +212,7 @@ function WorkflowStep({n,title,desc}:{n:string;title:string;desc:string}) {
 function SetupInfo({name,tag,text,color}:{name:string;tag:string;text:string;color:string}) {
   return <div className="setup-info"><span className={`setup-dot ${color}`}/><div><b>{name}</b><small>{tag}</small><p>{text}</p></div><ChevronDown size={15}/></div>;
 }
-function Watchlist({rows,emptyText}:{rows:ScanRow[];emptyText:string}) {
+function Watchlist({rows,emptyText,onSelect}:{rows:ScanRow[];emptyText:string;onSelect?:(symbol:string)=>void}) {
   if (!rows.length) return <div className="empty-state"><div className="empty-icon"><BarChart3 size={22}/></div><b>No candidates to display</b><p>{emptyText}</p></div>;
-  return <div className="table-wrap"><table><thead><tr><th>RANK / SYMBOL</th><th>LAST CLOSE</th><th>RANK SCORE</th><th>RANK BAND</th><th>SETUPS PASSED</th></tr></thead><tbody>{rows.map((row,i) => <tr key={row.symbol}><td><div className="symbol-cell"><span className="rank-num">{row.rank_position || i+1}</span><b>{row.symbol}</b></div></td><td>{money(row.ranking?.close)}</td><td><div className="score-cell"><b>{row.ranking?.score ?? "—"}</b><span className="score-track"><i style={{width:`${Math.max(0,Math.min(100,row.ranking?.score || 0))}%`}}/></span></div></td><td><span className={`score-badge ${scoreColor(row.ranking?.score)}`}>{row.ranking?.rank_band || "—"}</span></td><td><div className="setup-tags">{(row.passed_setups || []).length ? row.passed_setups?.map(s=><span key={s}>{s}</span>) : <span className="none-tag">None</span>}</div></td></tr>)}</tbody></table></div>;
+  return <div className="table-wrap"><table><thead><tr><th>RANK / SYMBOL</th><th>LAST CLOSE</th><th>RANK SCORE</th><th>RANK BAND</th><th>SETUPS PASSED</th></tr></thead><tbody>{rows.map((row,i) => <tr key={row.symbol} className={onSelect ? "clickable-row" : ""} onClick={() => onSelect?.(row.symbol)}><td><div className="symbol-cell"><span className="rank-num">{row.rank_position || i+1}</span><b>{row.symbol}</b></div></td><td>{money(row.ranking?.close)}</td><td><div className="score-cell"><b>{row.ranking?.score ?? "—"}</b><span className="score-track"><i style={{width:`${Math.max(0,Math.min(100,row.ranking?.score || 0))}%`}}/></span></div></td><td><span className={`score-badge ${scoreColor(row.ranking?.score)}`}>{row.ranking?.rank_band || "—"}</span></td><td><div className="setup-tags">{(row.passed_setups || []).length ? row.passed_setups?.map(s=><span key={s}>{s}</span>) : <span className="none-tag">None</span>}</div></td></tr>)}</tbody></table></div>;
 }
