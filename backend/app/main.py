@@ -5,6 +5,7 @@ import pandas as pd
 from backend.app.config import get_settings
 from backend.app.backtesting import backtest_symbol
 from backend.app.portfolio_backtesting import chronological_split, simulate_portfolio
+from backend.app.historical_market_filter import evaluate_historical_market_filter
 from backend.app.trade_planning import build_trade_plan
 from backend.app.indicators import calculate_indicators
 from backend.app.eod_pipeline import run_eod_pipeline
@@ -434,6 +435,7 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
     store = get_market_data_store()
     candidate_trades = []
     errors = []
+    histories = {}
     for symbol in request.symbols:
         try:
             bars = store.get_bars(symbol, "1d", limit=10000)
@@ -443,6 +445,7 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
                 [{key: bar[key] for key in ("open", "high", "low", "close", "volume")} for bar in bars],
                 index=pd.DatetimeIndex([bar["timestamp"] for bar in bars], name="timestamp"),
             )
+            histories[symbol.upper()] = frame
             result = backtest_symbol(
                 symbol=symbol, data=frame, setup=request.setup,
                 target_pct=request.target_pct,
@@ -463,6 +466,45 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
     }
     train = simulate_portfolio(split["train"], **settings_for_sim)
     test = simulate_portfolio(split["test"], **settings_for_sim)
+
+    filtered_comparison = {"status": "disabled"}
+    if request.market_filter_enabled:
+        benchmark_bars = store.get_bars("^NSEI", "1d", limit=10000)
+        if benchmark_bars:
+            benchmark_frame = pd.DataFrame(
+                [{key: bar[key] for key in ("open", "high", "low", "close", "volume")} for bar in benchmark_bars],
+                index=pd.DatetimeIndex([bar["timestamp"] for bar in benchmark_bars], name="timestamp"),
+            )
+            try:
+                universe = load_universe()["constituents"]
+                sector_by_symbol = {item["symbol"].upper(): item.get("sector", "Unclassified") for item in universe}
+            except (ValueError, FileNotFoundError):
+                sector_by_symbol = {}
+            evaluation = evaluate_historical_market_filter(
+                candidate_trades, histories, benchmark_frame, sector_by_symbol,
+                score_threshold=request.market_score_threshold,
+                minimum_completeness_pct=request.market_minimum_completeness_pct,
+            )
+            filtered_split = chronological_split(evaluation["accepted_trades"], request.train_fraction)
+            filtered_comparison = {
+                "status": "evaluated",
+                "score_threshold": request.market_score_threshold,
+                "minimum_completeness_pct": request.market_minimum_completeness_pct,
+                "snapshots_calculated": evaluation["snapshots_calculated"],
+                "trades_excluded": len(evaluation["excluded_trades"]),
+                "exclusion_reasons": {
+                    "insufficient_market_data": sum(x["reason"] == "insufficient_market_data" for x in evaluation["excluded_trades"]),
+                    "below_market_score_threshold": sum(x["reason"] == "below_market_score_threshold" for x in evaluation["excluded_trades"]),
+                },
+                "train": simulate_portfolio(filtered_split["train"], **settings_for_sim),
+                "out_of_sample": simulate_portfolio(filtered_split["test"], **settings_for_sim),
+                "warning": evaluation["warning"],
+            }
+        else:
+            filtered_comparison = {
+                "status": "unavailable",
+                "reason": "No stored ^NSEI daily benchmark history. Sync benchmark history before running the comparison.",
+            }
     return {
         "setup": request.setup,
         "symbols_requested": len(request.symbols),
@@ -471,6 +513,7 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
         "split_date": split["split_date"],
         "train": train,
         "out_of_sample": test,
+        "market_filter_comparison": filtered_comparison,
         "errors": errors,
         "parameters": {
             "initial_capital": request.initial_capital,
@@ -482,6 +525,9 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
             "cost_bps_per_side": request.cost_bps_per_side,
             "train_fraction": request.train_fraction,
             "max_participation_pct": request.max_participation_pct,
+            "market_filter_enabled": request.market_filter_enabled,
+            "market_score_threshold": request.market_score_threshold,
+            "market_minimum_completeness_pct": request.market_minimum_completeness_pct,
             "liquidity_cap_basis": "position notional capped at configured percentage of 20-session average daily traded value before signal date",
             "entry_rule": "next session open after completed daily signal",
         },
