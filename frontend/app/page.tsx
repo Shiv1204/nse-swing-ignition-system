@@ -21,6 +21,7 @@ type ScanRow = {
   rank_position?: number;
 };
 type Pipeline = {
+  market_intelligence?: { score: number | null; status: string; data_completeness_pct: number; guidance: string; warning: string; components: { name: string; score: number; max_score: number; detail: string }[] };
   market_breadth?: { as_of?: string | null; symbols_available: number; symbols_with_history: number; coverage_pct: number; advances: number; declines: number; advance_decline_ratio: number | string | null; above_sma20_pct: number | null; above_sma50_pct: number | null; above_sma200_pct: number | null; new_20_day_highs: number; new_20_day_lows: number; high_low_ratio: number | string | null; warning: string };
   sector_strength?: { lookback_sessions?: number; benchmark_return_pct?: number | null; sectors?: Record<string, { constituents_used: number; average_return_pct: number; relative_strength_pct: number; leaders: { symbol: string; return_pct: number }[] }> };
   universe_count?: number; symbols_ranked?: number; shortlist_count?: number;
@@ -179,6 +180,12 @@ export default function Dashboard() {
                 <p className="panel-intro">{marketRegime.rationale}</p><p className="panel-intro">{marketRegime.warning}</p>
               </> : <p className="panel-intro">Refresh to download Nifty 50 daily history and classify the broad market before reviewing long setups.</p>}
             </div>
+            {pipeline?.market_intelligence && <div className="panel-card intelligence-card">
+              <div className="card-head"><div><div className="eyebrow">CONSOLIDATED MARKET VIEW</div><h2>Market intelligence</h2></div><span className={`intelligence-status ${pipeline.market_intelligence.status}`}>{pipeline.market_intelligence.status.replaceAll("_", " ").toUpperCase()}</span></div>
+              <div className="intelligence-score-row"><strong>{pipeline.market_intelligence.score ?? "—"}<small>/100</small></strong><div><b>{pipeline.market_intelligence.guidance}</b><small>Data completeness: {pipeline.market_intelligence.data_completeness_pct}%</small></div></div>
+              <div className="intelligence-components">{pipeline.market_intelligence.components.map(component => <div className="intelligence-component" key={component.name}><div><b>{component.name}</b><small>{component.detail}</small></div><strong>{component.score}/{component.max_score}</strong></div>)}</div>
+              <p className="panel-intro">{pipeline.market_intelligence.warning}</p>
+            </div>}
             {pipeline?.market_breadth && <div className="panel-card table-card">
               <div className="card-head"><div><div className="eyebrow">MARKET PARTICIPATION · NSE UNIVERSE</div><h2>Market breadth</h2></div><span className="muted-icon">{pipeline.market_breadth.coverage_pct}% coverage</span></div>
               <div className="breadth-grid">
