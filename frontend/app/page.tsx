@@ -111,7 +111,9 @@ export default function Dashboard() {
           symbols, setup, initial_capital: 1000000, risk_per_trade_pct: 0.5,
           max_positions: 5, target_pct: 5, stop_atr_multiple: 1.5,
           max_holding_sessions: 10, cost_bps_per_side: 10, train_fraction: 0.7,
-          max_participation_pct: 1,
+          max_participation_pct: 1, cost_model: "india_equity_delivery",
+          delivery_brokerage_pct: 0, delivery_brokerage_cap: 20,
+          delivery_dp_charge: 0, delivery_slippage_bps_each_side: 5,
         }),
       });
       const payload = await response.json();
