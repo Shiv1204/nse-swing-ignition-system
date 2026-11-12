@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import math
 
+from backend.app.transaction_costs import estimate_delivery_costs
+
 
 def simulate_portfolio(
     trades: list[dict],
@@ -10,6 +12,8 @@ def simulate_portfolio(
     risk_per_trade_pct: float = 0.5,
     max_positions: int = 5,
     max_participation_pct: float = 1.0,
+    cost_model: str = "flat_bps",
+    delivery_cost_settings: dict | None = None,
 ) -> dict:
     if initial_capital <= 0:
         raise ValueError("initial_capital must be positive")
@@ -19,6 +23,8 @@ def simulate_portfolio(
         raise ValueError("max_positions must be between 1 and 50")
     if not 0 < max_participation_pct <= 10:
         raise ValueError("max_participation_pct must be > 0 and <= 10")
+    if cost_model not in {"flat_bps", "india_equity_delivery"}:
+        raise ValueError("Unsupported cost_model")
 
     ordered = sorted(trades, key=lambda t: (t["entry_date"], t["symbol"]))
     cash = float(initial_capital)
@@ -69,13 +75,24 @@ def simulate_portfolio(
             skipped["insufficient_capital"] += 1
             continue
         deployed = quantity * entry
+        net_return_pct = float(candidate["net_return_pct"])
+        cost_breakdown = None
+        if cost_model == "india_equity_delivery":
+            gross_return_pct = float(candidate.get("gross_return_pct", candidate["net_return_pct"]))
+            sell_value = quantity * float(candidate["exit_price"])
+            cost_breakdown = estimate_delivery_costs(
+                deployed, sell_value, **(delivery_cost_settings or {})
+            )
+            net_return_pct = (sell_value - deployed - cost_breakdown["total_cost"]) / deployed * 100
         cash -= deployed
         active.append({
             **candidate,
+            "net_return_pct": round(net_return_pct, 6),
             "quantity": quantity,
             "deployed": deployed,
             "risk_budget": risk_budget,
             "risk_amount": quantity * risk_per_share,
+            "transaction_costs": cost_breakdown,
         })
 
     for position in active:
