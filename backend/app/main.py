@@ -517,8 +517,24 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
                     "reason": "Populate data/universe/nse500_membership_history.csv with verified point-in-time constituent intervals before comparing filtered performance. A current list or selected-symbol subset is not accepted as full-universe validation.",
                 }
             else:
+                membership_symbols = sorted({row["symbol"] for row in membership_rows})
+                membership_histories = dict(histories)
+                for member_symbol in membership_symbols:
+                    if member_symbol in membership_histories:
+                        continue
+                    member_bars = store.get_bars(member_symbol, "1d", limit=10000)
+                    if member_bars:
+                        membership_histories[member_symbol] = pd.DataFrame(
+                            [{key: bar[key] for key in ("open", "high", "low", "close", "volume")} for bar in member_bars],
+                            index=pd.DatetimeIndex([bar["timestamp"] for bar in member_bars], name="timestamp"),
+                        )
+                membership_symbols_with_prices = sum(symbol in membership_histories for symbol in membership_symbols)
+                confidence_counts = {}
+                for row in membership_rows:
+                    confidence = row.get("confidence") or "unspecified"
+                    confidence_counts[confidence] = confidence_counts.get(confidence, 0) + 1
                 evaluation = evaluate_historical_market_filter(
-                    candidate_trades, histories, benchmark_frame, sector_by_symbol,
+                    candidate_trades, membership_histories, benchmark_frame, sector_by_symbol,
                     score_threshold=request.market_score_threshold,
                     minimum_completeness_pct=request.market_minimum_completeness_pct,
                     membership_rows=membership_rows,
@@ -532,13 +548,17 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
                         "split_date": split["split_date"],
                     }
                 filtered_comparison = {
-                    "status": "evaluated",
+                    "status": "evaluated_provisional",
                     "score_threshold": request.market_score_threshold,
                     "minimum_completeness_pct": request.market_minimum_completeness_pct,
                     "snapshots_calculated": evaluation["snapshots_calculated"],
                     "split_date": filtered_split["split_date"],
                     "membership_history_available": True,
                     "membership_history_rows": len(membership_rows),
+                    "membership_symbols": len(membership_symbols),
+                    "membership_symbols_with_price_history": membership_symbols_with_prices,
+                    "membership_symbols_missing_price_history": len(membership_symbols) - membership_symbols_with_prices,
+                    "membership_confidence_counts": confidence_counts,
                     "trades_excluded": len(evaluation["excluded_trades"]),
                     "exclusion_reasons": {
                         "insufficient_market_data": sum(x["reason"] == "insufficient_market_data" for x in evaluation["excluded_trades"]),
@@ -546,7 +566,7 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
                     },
                     "train": simulate_portfolio(filtered_split["train"], **settings_for_sim),
                     "out_of_sample": simulate_portfolio(filtered_split["test"], **settings_for_sim),
-                    "warning": evaluation["warning"],
+                    "warning": evaluation["warning"] + " Membership intervals are reconstructed third-party data and require audit; historical ticker canonicalisation and corporate-action-adjusted OHLCV are not yet fully reconciled.",
                 }
         else:
             filtered_comparison = {
