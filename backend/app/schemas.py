@@ -144,3 +144,9 @@ class TradePlanRequest(BaseModel):
     risk_per_trade_pct: float = Field(default=0.5, gt=0, le=5)
     max_allocation_pct: float = Field(default=20.0, gt=0, le=100)
     stop_atr_multiple: float = Field(default=1.5, gt=0, le=10)
+
+
+class MarketRegimeRequest(BaseModel):
+    """Refresh and classify the broad-market benchmark."""
+    benchmark: str = Field(default="^NSEI", min_length=1, max_length=32)
+    sync_market_data: bool = True
