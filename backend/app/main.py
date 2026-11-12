@@ -15,7 +15,6 @@ from backend.app.eod_pipeline import run_eod_pipeline
 from backend.app.market_data import MarketDataStore
 from backend.app.data_quality import audit_market_data
 from backend.app.paper_trading import place_paper_order, get_paper_portfolio
-from backend.app.paper_trading import place_paper_order, get_paper_portfolio
 from backend.app.market_regime import classify_market_regime
 from backend.app.scanners import run_scanner
 from backend.app.scoring import rank_stock
