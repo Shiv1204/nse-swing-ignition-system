@@ -9,6 +9,7 @@ from backend.app.trade_planning import build_trade_plan
 from backend.app.indicators import calculate_indicators
 from backend.app.eod_pipeline import run_eod_pipeline
 from backend.app.market_data import MarketDataStore
+from backend.app.market_regime import classify_market_regime
 from backend.app.scanners import run_scanner
 from backend.app.scoring import rank_stock
 from backend.app.universe import load_universe
@@ -23,6 +24,7 @@ from backend.app.schemas import (
     UniverseScanRequest,
     YahooBatchSyncRequest,
     TradePlanRequest,
+    MarketRegimeRequest,
 )
 
 settings = get_settings()
@@ -318,6 +320,29 @@ def scan_universe(request: UniverseScanRequest) -> dict:
         ),
     }
 
+
+
+@app.post("/api/v1/market-regime", tags=["market-regime"])
+def read_market_regime(request: MarketRegimeRequest) -> dict:
+    """Optionally refresh Nifty 50 daily history, then classify market regime."""
+    store = get_market_data_store()
+    if request.sync_market_data:
+        try:
+            bars = YahooFinanceProvider().fetch_bars(request.benchmark, "1d", "5y")
+            store.upsert_bars(request.benchmark, "1d", bars, source="yahoo_finance_adjusted")
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=f"Benchmark sync failed: {exc}") from exc
+    bars = store.get_bars(request.benchmark, "1d", limit=1000)
+    if not bars:
+        raise HTTPException(status_code=404, detail="No benchmark history found. Sync benchmark daily data first.")
+    frame = pd.DataFrame(
+        [{key: bar[key] for key in ("open", "high", "low", "close", "volume")} for bar in bars],
+        index=pd.DatetimeIndex([bar["timestamp"] for bar in bars], name="timestamp"),
+    )
+    try:
+        return classify_market_regime(frame, request.benchmark)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/api/v1/trade-plan", tags=["trade-planning"])
