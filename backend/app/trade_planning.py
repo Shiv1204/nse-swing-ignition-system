@@ -17,6 +17,7 @@ def build_trade_plan(
     risk_per_trade_pct: float = 0.5,
     max_allocation_pct: float = 20.0,
     stop_atr_multiple: float = 1.5,
+    hourly_data: pd.DataFrame | None = None,
 ) -> dict:
     """Build a conditional long plan from completed daily bars.
 
@@ -71,12 +72,24 @@ def build_trade_plan(
     }
     scan = run_scanner(setup, symbol, data)
     triggered = close >= entry
+    hourly_confirmation = evaluate_hourly_confirmation(hourly_data)
+    if triggered:
+        status = "trigger_already_crossed"
+    elif not scan.passed:
+        status = "conditions_not_met"
+    elif hourly_confirmation["status"] == "confirmed":
+        status = "ready_to_watch"
+    elif hourly_confirmation["status"] == "unavailable":
+        status = "waiting_for_hourly_data"
+    else:
+        status = "hourly_confirmation_failed"
     return {
         "symbol": symbol.upper(),
         "setup": setup,
         "as_of": str(frame.index[-1].date()),
-        "status": "trigger_already_crossed" if triggered else ("ready_to_watch" if scan.passed else "conditions_not_met"),
+        "status": status,
         "scanner": scan.to_dict(),
+        "hourly_confirmation": hourly_confirmation,
         "latest_close": round(close, 2),
         "entry_trigger": entry,
         "trigger_basis": trigger_basis,
@@ -103,6 +116,54 @@ def build_trade_plan(
             "Stop is the lower of the 10-session structural low and ATR-based stop, so risk may be wider.",
             "Targets are mathematical R-multiples; nearby resistance, gaps, slippage and taxes are not modeled.",
             "VCP output is only a candidate; contraction structure requires manual chart validation.",
+            "Hourly confirmation uses completed 1-hour candles only; Yahoo hourly history is limited and may be delayed or incomplete.",
             "No broker connection or order placement is performed.",
         ],
+    }
+
+
+def evaluate_hourly_confirmation(data: pd.DataFrame | None) -> dict:
+    """Evaluate short-term trend/momentum on stored hourly candles."""
+    if data is None or data.empty:
+        return {
+            "status": "unavailable",
+            "bars_available": 0 if data is None else len(data),
+            "required_bars": 60,
+            "passed": False,
+            "checks": {},
+            "failed_conditions": ["hourly_data_unavailable"],
+            "note": "Sync hourly candles and rerun; daily setup alone is not multi-timeframe confirmation.",
+        }
+    if not data.index.is_monotonic_increasing or data.index.has_duplicates:
+        raise ValueError("Hourly bars must have unique chronological timestamps")
+    if len(data) < 60:
+        return {
+            "status": "unavailable",
+            "bars_available": len(data),
+            "required_bars": 60,
+            "passed": False,
+            "checks": {},
+            "failed_conditions": ["insufficient_hourly_history"],
+            "note": "At least 60 hourly candles are required for EMA50 and indicator warm-up.",
+        }
+    frame = calculate_indicators(data)
+    latest = frame.iloc[-1]
+    checks = {
+        "hourly_close_above_ema20": bool(latest["close"] > latest["ema_20"]),
+        "hourly_ema20_above_ema50": bool(latest["ema_20"] > latest["ema_50"]),
+        "hourly_rsi_50_to_70": bool(50 <= latest["rsi_14"] <= 70),
+        "hourly_macd_above_signal": bool(latest["macd"] > latest["signal"]),
+        "hourly_plus_di_above_minus_di": bool(latest["plus_di"] > latest["minus_di"]),
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    return {
+        "status": "confirmed" if not failed else "not_confirmed",
+        "bars_available": len(frame),
+        "required_bars": 60,
+        "as_of": str(frame.index[-1]),
+        "latest_close": round(float(latest["close"]), 2),
+        "checks": checks,
+        "failed_conditions": failed,
+        "passed": not failed,
+        "note": "All five hourly trend/momentum checks must pass. Supply completed hourly candles only.",
     }
