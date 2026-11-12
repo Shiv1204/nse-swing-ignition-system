@@ -47,6 +47,7 @@ def run_eod_pipeline(
                 except Exception as exc:
                     sync_errors.append({"symbol": symbol, "error": str(exc)})
 
+    benchmark_bars = store.get_bars("^NSEI", "1d", limit=1000)
     histories: dict[str, pd.DataFrame] = {}
     for symbol in symbols:
         stored = store.get_bars(symbol, "1d", limit=1000)
