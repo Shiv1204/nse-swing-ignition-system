@@ -4,7 +4,7 @@ from __future__ import annotations
 import pandas as pd
 
 
-def calculate_market_breadth(histories: dict[str, pd.DataFrame], lookback: int = 20) -> dict:
+def calculate_market_breadth(histories: dict[str, pd.DataFrame], lookback: int = 20, expected_symbols: list[str] | None = None) -> dict:
     """Calculate breadth from available daily histories; report coverage explicitly."""
     eligible = []
     above_20 = above_50 = above_200 = advances = declines = unchanged = new_highs = new_lows = 0
@@ -33,8 +33,8 @@ def calculate_market_breadth(histories: dict[str, pd.DataFrame], lookback: int =
     return {
         "as_of": max((str(histories[symbol].index[-1].date()) for symbol in eligible), default=None),
         "symbols_available": total,
-        "symbols_with_history": len(histories),
-        "coverage_pct": round(total / len(histories) * 100, 2) if histories else 0.0,
+        "symbols_with_history": len(expected_symbols if expected_symbols is not None else histories),
+        "coverage_pct": round(total / len(expected_symbols if expected_symbols is not None else histories) * 100, 2) if (expected_symbols if expected_symbols is not None else histories) else 0.0,
         "advances": advances, "declines": declines, "unchanged": unchanged,
         "advance_decline_ratio": round(advances / declines, 2) if declines else (None if not advances else "infinite"),
         "above_sma20": above_20, "above_sma20_pct": pct(above_20),
