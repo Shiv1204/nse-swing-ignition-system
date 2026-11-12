@@ -110,7 +110,7 @@ class BacktestRequest(BaseModel):
 class PortfolioBacktestRequest(BaseModel):
     """Portfolio-level simulation settings for stored daily histories."""
 
-    symbols: list[str] = Field(min_length=1, max_length=50)
+    symbols: list[str] = Field(min_length=1, max_length=500)
     setup: Literal["reversal", "vcp", "momentum"]
     initial_capital: float = Field(default=1_000_000, gt=0)
     risk_per_trade_pct: float = Field(default=0.5, gt=0, le=5)
