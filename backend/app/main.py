@@ -13,6 +13,7 @@ from backend.app.trade_planning import build_trade_plan
 from backend.app.indicators import calculate_indicators
 from backend.app.eod_pipeline import run_eod_pipeline
 from backend.app.market_data import MarketDataStore
+from backend.app.data_quality import audit_market_data
 from backend.app.market_regime import classify_market_regime
 from backend.app.scanners import run_scanner
 from backend.app.scoring import rank_stock
@@ -626,3 +627,14 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
             "index membership still require independent validation. No live orders are placed."
         ),
     }
+
+
+@app.get("/api/v1/market-data/audit", tags=["market-data"])
+def audit_stored_market_data(timeframe: str = Query(default="1d", pattern="^(1h|4h|1d)$")) -> dict:
+    """Return a read-only provenance and coverage audit of stored OHLCV candles."""
+    expected_symbols = None
+    try:
+        expected_symbols = [item["symbol"] for item in load_universe()["constituents"]]
+    except (ValueError, FileNotFoundError):
+        pass
+    return audit_market_data(settings.database_path, expected_symbols=expected_symbols, timeframe=timeframe)
