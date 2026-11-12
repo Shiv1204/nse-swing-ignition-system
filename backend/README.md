@@ -151,3 +151,8 @@ This remains a research prototype, not a final performance simulator. Costs are 
 The EOD pipeline calculates 20-session returns for configured universe constituents, groups them by the sector column in `data/universe/nse500.csv`, and compares each sector's equal-weight average return with Nifty 50. Sectors require at least two constituents with usable histories. Sector relative strength (percentage-point outperformance) is passed into the existing 10-point stock ranking component. The dashboard displays the strongest available sectors and their leading constituents after an EOD scan.
 
 This is a constituent-based proxy, not an official sector-index series. It can be biased by incomplete universe membership, missing histories, and asynchronous last candle dates. It is not available until the Nifty benchmark and relevant stock candles are stored. The method does not imply predictive performance; validate it in out-of-sample portfolio backtests before relying on it.
+
+
+### Market breadth and participation
+
+The EOD pipeline reports breadth for configured universe constituents with at least 201 daily candles: advances/declines, the percentage above 20/50/200-day simple moving averages, and new 20-session highs/lows. The dashboard displays these metrics alongside sector strength and the Nifty 50 regime. This is equal-weight constituent breadth, not an official exchange advance/decline series. Coverage and candle dates matter: missing symbols or mismatched last dates can distort the snapshot. Breadth is currently informational and does not independently block trades or alter ranking scores.
