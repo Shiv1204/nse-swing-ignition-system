@@ -124,3 +124,13 @@ This remains a research prototype, not a final performance simulator. Costs are 
 - Sync prototype hourly history with `POST /api/v1/market-data/sync/RELIANCE?timeframe=1h&period=60d`, then rerun `POST /api/v1/trade-plan`.
 - If hourly candles are missing or fewer than 60, the plan reports `waiting_for_hourly_data` when the daily scanner passes. If any hourly condition fails, it reports `hourly_confirmation_failed`. A daily trigger already crossed remains flagged separately.
 - Yahoo hourly history is limited, unofficial and may be delayed or incomplete. Use completed NSE-session candles only; this is a filter, not proof of future price direction. No orders are placed.
+
+
+### Nifty 50 market regime filter
+
+- `POST /api/v1/market-regime` with `{"benchmark":"^NSEI","sync_market_data":true}` downloads Nifty 50 daily history from the Yahoo prototype adapter, stores it, and returns an explainable regime classification.
+- The classifier requires at least 210 daily candles and evaluates close vs SMA50/SMA200, moving-average slopes, 20-session return, and ADX.
+- Bullish: at least 4 of 5 bullish checks pass and close is above SMA200. Bearish: at least 3 of 4 bearish checks pass and close is below SMA200. Otherwise sideways.
+- The EOD pipeline reads stored `^NSEI` history. In a bearish regime it blocks new long candidates from the shortlist; in a sideways regime it raises the shortlist score threshold from 60 to 70. When benchmark history is unavailable, the pipeline clearly reports that the regime filter is unavailable and retains the legacy score threshold.
+- Refresh the benchmark from the dashboard's Market Regime panel before running the EOD scan. The Nifty benchmark ticker is stored as `^NSEI`; the Yahoo adapter maps it directly without adding the NSE equity suffix.
+- This is a transparent heuristic risk filter, not a market forecast. It does not modify individual stock ranking scores or close existing positions. Verify benchmark candle dates/completeness and provider quality; no orders are placed.
