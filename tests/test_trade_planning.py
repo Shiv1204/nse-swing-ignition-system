@@ -31,7 +31,7 @@ def test_trade_plan_has_entry_stop_targets_and_position_size():
 def test_trade_plan_marks_failed_scanner_conditions():
     result = build_trade_plan("abc", make_bars(), "vcp")
     assert result["scanner"]["setup"] == "vcp_candidate"
-    assert result["status"] in {"ready_to_watch", "conditions_not_met", "trigger_already_crossed"}
+    assert result["status"] in {"ready_to_watch", "conditions_not_met", "trigger_already_crossed", "waiting_for_hourly_data", "hourly_confirmation_failed"}
 
 
 def test_trade_plan_rejects_short_history_and_invalid_risk():
