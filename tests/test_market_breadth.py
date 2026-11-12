@@ -34,3 +34,15 @@ def test_market_breadth_coverage_uses_expected_constituent_count():
     assert result["symbols_available"] == 1
     assert result["symbols_with_history"] == 3
     assert result["coverage_pct"] == 33.33
+
+
+
+def test_market_breadth_distinguishes_expected_members_from_history_rows():
+    result = calculate_market_breadth(
+        {"AAA": history(), "BBB": history().tail(100)},
+        expected_symbols=["AAA", "BBB", "CCC"],
+    )
+    assert result["symbols_expected"] == 3
+    assert result["symbols_with_history"] == 2
+    assert result["symbols_available"] == 1
+    assert result["coverage_pct"] == 33.33
