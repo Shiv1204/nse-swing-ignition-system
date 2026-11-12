@@ -67,3 +67,14 @@ def test_liquidity_cap_skips_too_small_trade():
     result = simulate_portfolio([candidate], max_participation_pct=1.0)
     assert result["trade_count"] == 0
     assert result["skipped"]["liquidity_limit"] == 1
+
+
+def test_same_day_candidates_are_allocated_by_ranking_score():
+    lower = trade("AAA", "2025-02-03", "2025-02-07")
+    higher = trade("ZZZ", "2025-02-03", "2025-02-07")
+    lower["ranking_score"] = 72
+    higher["ranking_score"] = 91
+    result = simulate_portfolio([lower, higher], max_positions=1)
+    assert result["trade_count"] == 1
+    assert result["trades"][0]["symbol"] == "ZZZ"
+    assert result["same_day_allocation_priority"] == "ranking_score_descending_then_symbol"
