@@ -100,6 +100,10 @@ def simulate_portfolio(
         completed.append(position)
 
     pnl = cash - initial_capital
+    cost_totals = {}
+    for position in completed:
+        for name, amount in (position.get("transaction_costs") or {}).get("components", {}).items():
+            cost_totals[name] = cost_totals.get(name, 0.0) + float(amount)
     winners = [p for p in completed if p["net_return_pct"] > 0]
     losses = [p for p in completed if p["net_return_pct"] < 0]
     gross_win = sum(p["deployed"] * p["net_return_pct"] / 100 for p in winners)
@@ -151,6 +155,9 @@ def simulate_portfolio(
         "max_drawdown_pct": round(max_drawdown * 100, 4),
         "max_positions": max_positions,
         "risk_per_trade_pct": risk_per_trade_pct,
+        "cost_model": cost_model,
+        "transaction_cost_totals": {key: round(value, 2) for key, value in cost_totals.items()},
+        "total_transaction_costs": round(sum(cost_totals.values()), 2),
         "max_participation_pct": max_participation_pct,
         "skipped": skipped,
         "equity_curve": equity_curve,
