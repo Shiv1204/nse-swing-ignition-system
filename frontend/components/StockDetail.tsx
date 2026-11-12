@@ -19,7 +19,7 @@ type TradePlan = {
   targets: Record<string, number>;
   sizing: { capital: number; risk_per_trade_pct: number; risk_budget: number;
     max_allocation_pct: number; quantity: number; estimated_position_value: number; estimated_risk: number };
-  scanner: { passed: boolean; score: number; reasons: string[]; failed_conditions: string[] };
+  scanner: { passed: boolean; score: number; reasons: string[]; failed_conditions: string[] };\n  hourly_confirmation: { status: string; bars_available: number; required_bars: number; passed: boolean; checks: Record<string, boolean>; failed_conditions: string[]; note: string };
   assumptions: string[];
 };
 
@@ -129,6 +129,13 @@ export default function StockDetail({ symbol, onBack }: { symbol: string; onBack
         {planError && <div className="notice error"><CircleAlert size={16}/>{planError}</div>}
         {plan && <div className="trade-plan-result">
           <div className="notice warning"><b>{plan.status.replaceAll("_", " ").toUpperCase()}</b><span> · Scanner {plan.scanner.score}/100 · {plan.scanner.passed ? "All scanner conditions passed" : "Scanner conditions not met"}</span></div>
+          <div className={`notice ${plan.hourly_confirmation.passed ? "success" : "warning"}`}>
+            <b>Hourly confirmation: {plan.hourly_confirmation.status.replaceAll("_", " ").toUpperCase()}</b>
+            <span> · {plan.hourly_confirmation.bars_available}/{plan.hourly_confirmation.required_bars} required candles · {plan.hourly_confirmation.passed ? "Daily + hourly alignment confirmed" : plan.hourly_confirmation.note}</span>
+          </div>
+          <div className="hourly-checks">
+            {Object.entries(plan.hourly_confirmation.checks).map(([name, passed]) => <span key={name} className={passed ? "positive" : "negative"}>{passed ? "✓" : "×"} {name.replaceAll("_", " ")}</span>)}
+          </div>
           <div className="indicator-grid">
             <Indicator label="Entry trigger" value={rupee(plan.entry_trigger)} note={`${plan.trigger_distance_pct}% from latest close`}/>
             <Indicator label="Stop-loss" value={rupee(plan.stop_loss)} note={`${plan.stop_distance_pct}% risk distance`}/>
