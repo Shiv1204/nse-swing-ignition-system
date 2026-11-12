@@ -46,7 +46,8 @@ def evaluate_historical_market_filter(
             excluded.append({"symbol": trade["symbol"], "signal_date": signal_date, "reason": "insufficient_market_data", "score": intelligence["score"], "data_completeness_pct": intelligence["data_completeness_pct"]})
         elif intelligence["score"] < score_threshold:
             excluded.append({"symbol": trade["symbol"], "signal_date": signal_date, "reason": "below_market_score_threshold", "score": intelligence["score"], "data_completeness_pct": intelligence["data_completeness_pct"]})
-    accepted = [trade for trade in evaluated if trade not in excluded]
+    excluded_keys = {(item["symbol"], item["signal_date"]) for item in excluded}
+    accepted = [trade for trade in evaluated if (trade["symbol"], str(pd.Timestamp(trade["signal_date"]).date())) not in excluded_keys]
     return {
         "trades": evaluated,
         "accepted_trades": accepted,
