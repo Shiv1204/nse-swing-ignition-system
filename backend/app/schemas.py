@@ -120,6 +120,9 @@ class PortfolioBacktestRequest(BaseModel):
     max_holding_sessions: int = Field(default=10, ge=1, le=30)
     cost_bps_per_side: float = Field(default=10.0, ge=0, le=500)
     train_fraction: float = Field(default=0.7, ge=0.5, le=0.9)
+    market_filter_enabled: bool = True
+    market_score_threshold: int = Field(default=65, ge=0, le=100)
+    market_minimum_completeness_pct: float = Field(default=80.0, ge=0, le=100)
     max_participation_pct: float = Field(
         default=1.0, gt=0, le=10,
         description="Maximum position notional as a percentage of 20-day average daily traded value.",
