@@ -8,6 +8,7 @@ from backend.app.market_data import MarketDataStore
 from backend.app.market_regime import classify_market_regime
 from backend.app.scanners import run_scanner
 from backend.app.scoring import rank_stock
+from backend.app.sector_strength import calculate_sector_strength
 from backend.app.universe import load_universe
 from backend.app.yahoo_finance import YahooFinanceProvider
 
@@ -46,6 +47,23 @@ def run_eod_pipeline(
                 except Exception as exc:
                     sync_errors.append({"symbol": symbol, "error": str(exc)})
 
+    histories: dict[str, pd.DataFrame] = {}
+    for symbol in symbols:
+        stored = store.get_bars(symbol, "1d", limit=1000)
+        if len(stored) >= 21:
+            histories[symbol] = pd.DataFrame(
+                [{key: bar[key] for key in ("open", "high", "low", "close", "volume")} for bar in stored],
+                index=pd.DatetimeIndex([bar["timestamp"] for bar in stored], name="timestamp"),
+            )
+    benchmark_for_sector = None
+    if len(benchmark_bars) >= 21:
+        benchmark_for_sector = pd.DataFrame(
+            [{key: bar[key] for key in ("open", "high", "low", "close", "volume")} for bar in benchmark_bars],
+            index=pd.DatetimeIndex([bar["timestamp"] for bar in benchmark_bars], name="timestamp"),
+        )
+    sector_analysis = calculate_sector_strength(universe["constituents"], histories, benchmark_for_sector, lookback=20)
+    sector_relative = {sector: details["relative_strength_pct"] for sector, details in sector_analysis["sectors"].items()}
+
     ranked: list[dict] = []
     data_errors: list[dict] = []
     for symbol in symbols:
@@ -66,7 +84,8 @@ def run_eod_pipeline(
             # Fail closed on non-chronological or duplicate timestamps.
             if not frame.index.is_monotonic_increasing or frame.index.has_duplicates:
                 raise ValueError("Stored candle timestamps are not strictly chronological.")
-            ranking = rank_stock(symbol, frame)
+            sector_name = next((item["sector"] for item in universe["constituents"] if item["symbol"] == symbol), "")
+            ranking = rank_stock(symbol, frame, sector_relative_strength_pct=sector_relative.get(sector_name))
             setups = {
                 setup: run_scanner(setup, symbol, frame).to_dict()
                 for setup in ("reversal", "vcp", "momentum")
@@ -129,6 +148,7 @@ def run_eod_pipeline(
         "symbols_without_usable_history": len(data_errors),
         "data_errors": data_errors,
         "market_regime": market_regime,
+        "sector_strength": sector_analysis,
         "market_regime_filter": {
             "status": market_regime["regime"] if market_regime else "unavailable",
             "minimum_score": minimum_score,
