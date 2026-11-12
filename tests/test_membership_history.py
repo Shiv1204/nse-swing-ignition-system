@@ -16,6 +16,8 @@ def test_membership_history_resolves_point_in_time_intervals(tmp_path: Path):
     )
     rows = load_membership_history(path)
     assert {row["symbol"] for row in members_on_date(rows, "2021-03-01")} == {"AAA", "BBB"}
+    assert {row["symbol"] for row in members_on_date(rows, "2021-06-30")} == {"BBB"}
+    assert {row["symbol"] for row in members_on_date(rows, "2021-07-01")} == {"AAA", "BBB"}
     assert {row["symbol"] for row in members_on_date(rows, "2022-01-01")} == {"AAA", "BBB"}
 
 
