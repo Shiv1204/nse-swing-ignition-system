@@ -225,3 +225,28 @@ Before using the result in strategy evaluation, check daily member counts, known
 NSE's official [All Reports](https://www.nseindia.com/all-reports) portal provides daily cash-market reports. The official catalogue states the old CM bhavcopy formats were discontinued from 8 July 2024 and replaced with the UDiFF common bhavcopy. The importer accepts UDiFF files and the older `sec_bhavdata_full` / legacy equity CSV header variants. For 2020–2026, `sec_bhavdata_full` is a practical daily bulk source where available; UDiFF is the current format from July 2024. Keep downloaded raw files so the source data can be reprocessed and audited.
 
 **Do not treat the current NSE 500 list as historical membership.** The membership file and OHLCV history are separate datasets and both need date-level validation before a survivorship-bias-free backtest is considered ready.
+
+
+## Data quality audit and source controls
+
+- `GET /api/v1/market-data/audit?timeframe=1d` — read-only inventory of stored symbols, bar counts, date ranges, source labels, mixed-source warnings, insufficient daily histories, and missing expected symbols when a verified current universe CSV is configured.
+- Breadth coverage now distinguishes expected point-in-time members, members with a same-date history available, and members with at least 201 usable daily candles. A low coverage percentage reduces historical market-filter completeness rather than silently treating a selected-stock subset as the entire market.
+- Membership intervals use half-open `[valid_from, valid_to)` dates; empty intervals are rejected. The third-party Nifty 500 reconstruction remains provisional and must be independently audited before using filtered results as performance evidence.
+- The audit is a basic operational check, not a price validator. It cannot prove that adjusted prices correctly handle splits, bonuses, dividends, symbol changes, delistings, exchange holidays, or provider licensing. A clean audit is not a clean bill of health for a backtest.
+- Do not mix Yahoo adjusted bars with raw NSE bhavcopy bars in the same symbol/timeframe history. Keep source datasets separate until a corporate-action adjustment and reconciliation process has been validated.
+
+## Paper trading (broker-independent)
+
+- `POST /api/v1/paper-trading/orders` — record a simulated cash-equity buy or sell. Required fields: `symbol`, `side` (`buy`/`sell`), `quantity`, and `assumed_fill_price`. The optional `initial_capital` defaults to ₹10,00,000 and `note` stores a short rationale.
+- `GET /api/v1/paper-trading/portfolio` — read paper cash, realized P&L, open positions and the last 100 simulated orders.
+- The paper ledger persists in the configured SQLite database, enforces cash availability and prevents selling more shares than held. Average cost and realized P&L are tracked.
+- Dashboard: open `/paper` to record simulated orders and review the ledger.
+- Important limitations: fills are assumed at the user-entered price; there is no live quote, order book, partial fill, stop/target monitoring, brokerage, STT, stamp duty, GST, DP fee, slippage, corporate-action handling, or mark-to-market valuation yet. This is a ledger for workflow rehearsal, not a realistic execution simulator. It is completely separate from broker integration.
+
+## Scheduled EOD scan and alerts
+
+- `scripts/run_scheduled_scan.py` calls the EOD pipeline after market close. Configure `NSIS_API_URL` (default `http://127.0.0.1:8000`), `NSIS_SYNC_BEFORE_SCAN=true` if the configured universe/provider should be refreshed, and optional `NSIS_ALERT_WEBHOOK` for a JSON shortlist notification.
+- Schedule it using the host's task scheduler/cron at approximately 15:45–16:00 India time on NSE trading days. The runner itself does not install a scheduler or know the exchange holiday calendar; schedule only on trading days and ensure the API service is running.
+- The webhook payload includes symbol, ranking score, passed setups and market regime. It contains research candidates only; no order action is exposed.
+- Restrict the API and webhook to trusted networks, use HTTPS for remote deployments, and protect webhook URLs as secrets. The development API does not implement user authentication.
+- A CI workflow at `.github/workflows/backend-ci.yml` runs the backend pytest suite on pushes to the development/main branches and pull requests to main. The workflow is configured but its result must be checked in GitHub Actions; no test execution is claimed from this editing session.
