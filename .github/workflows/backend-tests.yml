@@ -1,15 +1,8 @@
-name: Backend tests
+name: Backend tests (manual only)
+
 on:
-  push:
-    branches: [develop/backend-foundation]
-    paths:
-      - "backend/**"
-      - "tests/**"
-      - "requirements.txt"
-      - "pyproject.toml"
-      - ".github/workflows/backend-tests.yml"
-  pull_request:
-    branches: [develop/backend-foundation]
+  workflow_dispatch:
+
 jobs:
   pytest:
     runs-on: ubuntu-latest
