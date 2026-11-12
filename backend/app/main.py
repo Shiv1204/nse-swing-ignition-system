@@ -434,7 +434,7 @@ def run_historical_backtest(request: BacktestRequest) -> dict:
 
 @app.get("/api/v1/universe/membership", tags=["universe"])
 def get_historical_membership(as_of_date: str = Query(..., description="Date in YYYY-MM-DD format")) -> dict:
-    """Return verified index members active on a requested historical date."""
+    """Return imported point-in-time index members active on a requested date."""
     try:
         target = date.fromisoformat(as_of_date)
         rows = load_membership_history()
