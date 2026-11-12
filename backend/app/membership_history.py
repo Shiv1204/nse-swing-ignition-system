@@ -26,8 +26,8 @@ def load_membership_history(path: str | Path = "data/universe/nse500_membership_
             start = date.fromisoformat(row["valid_from"])
             end = date.fromisoformat(row["valid_to"]) if row["valid_to"] else None
             date.fromisoformat(row["as_of_date"])
-            if end and end < start:
-                raise ValueError(f"valid_to precedes valid_from on line {line}")
+            if end and end <= start:
+                raise ValueError(f"valid_to must be after valid_from for a half-open interval on line {line}")
             row["_start"] = start
             row["_end"] = end
             rows.append(row)
