@@ -488,6 +488,11 @@ def run_portfolio_backtest(request: PortfolioBacktestRequest) -> dict:
             "brokerage_pct": request.delivery_brokerage_pct,
             "brokerage_cap_per_order": request.delivery_brokerage_cap,
             "dp_charge_per_sell_order": request.delivery_dp_charge,
+            "exchange_transaction_pct": request.delivery_exchange_transaction_pct,
+            "stt_pct_each_side": request.delivery_stt_pct_each_side,
+            "stamp_duty_pct_buy": request.delivery_stamp_duty_pct_buy,
+            "sebi_pct_each_side": request.delivery_sebi_pct_each_side,
+            "gst_pct": request.delivery_gst_pct,
             "slippage_bps_each_side": request.delivery_slippage_bps_each_side,
         },
     }
