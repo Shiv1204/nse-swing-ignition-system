@@ -655,4 +655,27 @@ def create_paper_order(request: PaperOrderRequest) -> dict:
 @app.get("/api/v1/paper-trading/portfolio", tags=["paper-trading"])
 def read_paper_portfolio(initial_capital: float = Query(default=1_000_000, gt=0)) -> dict:
     """Read the local simulated portfolio and its latest 100 ledger entries."""
-    return get_paper_portfolio(settings.database_path, initial_capital)
+    portfolio = get_paper_portfolio(settings.database_path, initial_capital)
+    market_value = 0.0
+    unrealized_pnl = 0.0
+    for position in portfolio["open_positions"]:
+        bars = get_market_data_store().get_bars(position["symbol"], "1d", limit=1)
+        if bars:
+            market_price = float(bars[-1]["close"])
+            position["market_price"] = market_price
+            position["market_value"] = round(position["quantity"] * market_price, 2)
+            position["unrealized_pnl"] = round((market_price - position["average_price"]) * position["quantity"], 2)
+            position["price_as_of"] = bars[-1]["timestamp"].isoformat()
+            market_value += position["market_value"]
+            unrealized_pnl += position["unrealized_pnl"]
+        else:
+            position["market_price"] = None
+            position["market_value"] = None
+            position["unrealized_pnl"] = None
+            position["price_as_of"] = None
+    portfolio["market_value"] = round(market_value, 2)
+    portfolio["unrealized_pnl"] = round(unrealized_pnl, 2)
+    portfolio["estimated_equity"] = round(portfolio["cash"] + market_value, 2)
+    portfolio["total_pnl_including_unrealized"] = round(portfolio["realized_pnl"] + unrealized_pnl, 2)
+    portfolio["mark_to_market_note"] = "Uses latest locally stored daily close; missing or stale candles are not refreshed automatically."
+    return portfolio
