@@ -31,7 +31,8 @@ from backend.app.schemas import (
     UniverseScanRequest,
     YahooBatchSyncRequest,
     TradePlanRequest,
-    MarketRegimeRequest,\n    PaperOrderRequest,
+    MarketRegimeRequest,
+    PaperOrderRequest,
 )
 
 settings = get_settings()
