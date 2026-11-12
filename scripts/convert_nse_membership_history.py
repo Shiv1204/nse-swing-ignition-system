@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 from collections import Counter
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 def convert(source_path: Path, output_path: Path, as_of_date: str) -> dict:
@@ -21,7 +21,7 @@ def convert(source_path: Path, output_path: Path, as_of_date: str) -> dict:
             start = date.fromisoformat(row["valid_from"].strip())
             raw_end = (row.get("valid_to") or "").strip()
             # Source uses half-open [valid_from, valid_to); NSIS stores inclusive valid_to.
-            end = (date.fromisoformat(raw_end) - timedelta(days=1)).isoformat() if raw_end else ""
+            end = date.fromisoformat(raw_end).isoformat() if raw_end else ""
             if end and date.fromisoformat(end) < start:
                 raise ValueError("Invalid membership interval for " + row["symbol"])
             provenance = (row.get("source") or "unspecified").strip()
