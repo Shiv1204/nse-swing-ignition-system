@@ -133,3 +133,14 @@ class PortfolioBacktestRequest(BaseModel):
         if len(normalized) != len(set(normalized)):
             raise ValueError("Symbols must be unique")
         return self
+
+
+class TradePlanRequest(BaseModel):
+    """Conditional trade-plan settings for one stored daily symbol."""
+
+    symbol: str = Field(min_length=1, max_length=32)
+    setup: Literal["reversal", "vcp", "momentum"]
+    capital: float = Field(default=1_000_000, gt=0)
+    risk_per_trade_pct: float = Field(default=0.5, gt=0, le=5)
+    max_allocation_pct: float = Field(default=20.0, gt=0, le=100)
+    stop_atr_multiple: float = Field(default=1.5, gt=0, le=10)
