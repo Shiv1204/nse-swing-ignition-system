@@ -19,6 +19,19 @@ A research and decision-support platform for long-only NSE 500 swing trading, ta
 7. FastAPI backend and Next.js dashboard
 8. Optional Zerodha Kite integration only after validation, initially read-only/paper mode
 
+## Dashboard (Next.js)
+
+The frontend lives in `frontend/` and connects to the FastAPI backend.
+
+```bash
+cd frontend
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+Set `NEXT_PUBLIC_API_BASE_URL` in `frontend/.env.local` to the backend URL (default: `http://localhost:8000`). Start the backend separately using the instructions in `backend/README.md`. The dashboard currently provides API connectivity status, EOD pipeline execution, ranked watchlists, and portfolio backtest controls. It displays no fabricated market prices; results require a configured universe and stored OHLCV history.
+
 ## Initial development sequence
 
 - Phase 1: backend foundation, configuration, health endpoint, and tests
