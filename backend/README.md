@@ -184,3 +184,23 @@ Reference fee schedule: [Zerodha charges](https://zerodha.com/charges/). The pro
 
 
 A membership inspection endpoint is available at `GET /api/v1/universe/membership?as_of_date=YYYY-MM-DD`. It returns the members active on the requested date and the number of source intervals loaded. It returns a validation error when the membership file is missing, empty, or malformed.
+
+### NSE historical daily OHLCV import
+
+The backend can import official NSE cash-market bhavcopy files after you download them from NSE's historical reports portal. NSE's UDiFF common bhavcopy replaced the older cash-market bhavcopy format from 8 July 2024; the importer supports both UDiFF ZIP/CSV and legacy CSV headers. It filters to cash-market (CM), stock (STK) and equity (EQ) rows, then stores daily OHLCV by symbol.
+
+Official source: [NSE All Reports — Equities](https://www.nseindia.com/all-reports). Choose the date and download **CM-UDiFF Common Bhavcopy Final (zip)** for dates from 8 July 2024 onward. For earlier dates, use the legacy CM bhavcopy CSV/ZIP where available. NSE notes the legacy CM bhavcopy formats were discontinued from 8 July 2024. [NSE report catalogue](https://www.nseindia.com/all-reports).
+
+Single file:
+```bash
+python -m scripts.import_nse_bhavcopy /path/to/BhavCopy_NSE_CM_0_0_0_20250102_F_0000.csv.zip
+```
+
+Folder of downloaded daily ZIPs:
+```bash
+python -m scripts.import_nse_bhavcopy /path/to/nse_bhavcopies --directory --pattern "*.zip"
+```
+
+Use --pattern "*.csv" for extracted CSVs. The importer is idempotent and reports imported symbols, dates, rows and rejected records. It does not download files automatically or bypass NSE access controls. For a 2020–2026 history, download the daily bhavcopies in manageable yearly/monthly batches and retain the original files and retrieval notes.
+
+**Corporate-action warning:** NSE bhavcopy OHLC is raw exchange data. Splits, bonuses, rights, mergers and symbol/ISIN changes must be reconciled before calculating long-history returns. The project must not mix raw NSE bars with auto-adjusted Yahoo bars for the same instrument. Store the source and adjustment methodology with each research dataset.
