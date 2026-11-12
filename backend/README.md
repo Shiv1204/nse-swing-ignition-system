@@ -161,3 +161,8 @@ The EOD pipeline reports breadth for configured universe constituents with at le
 ### Consolidated market intelligence score
 
 The EOD pipeline returns a 0–100 market intelligence score and a status (favorable, mixed, unfavorable, insufficient_data, or unavailable). The transparent weighting is: Nifty 50 regime 40 points; breadth 40 points (stocks above SMA 50 and SMA 200, daily advances/declines, and 20-session highs/lows); sector participation 20 points (share of calculated sectors outperforming Nifty 50). The score is normalized over available components, and data completeness is reported separately. A score based on fewer than 50 available points is marked insufficient_data. This is a research heuristic only; it does not alter stock rankings, shortlist rules, or order execution.
+
+
+### Historical market-filter validation
+
+The portfolio backtest can compare the same candidate trades with and without the consolidated market filter. For each signal date, the filter builds a snapshot using only selected-symbol daily histories and the stored Nifty 50 benchmark available through that date; trades below the configured market score or minimum data-completeness threshold are excluded. The response reports baseline and filtered train/out-of-sample portfolio metrics, excluded counts, and snapshot coverage. This first implementation uses only the selected backtest symbols for historical breadth and a currently configured sector map; it is not full point-in-time NSE 500 breadth or sector membership. Sync Nifty 50 history first. Treat the comparison as exploratory until tested on a larger, survivorship-bias-controlled universe with realistic costs and independent validation.
