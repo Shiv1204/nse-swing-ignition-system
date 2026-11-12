@@ -65,7 +65,7 @@ The initial adapter supports daily and hourly candles. Four-hour bars are intent
 - Example body: `{"sync_market_data": false, "shortlist_limit": 30}`.
 - Set `sync_market_data` to `true` to fetch daily history sequentially from Yahoo Finance before scanning. The pipeline does not schedule itself; invoke it after the NSE session has closed.
 - A stock needs at least 210 daily candles. Stocks with missing/insufficient history are reported separately. The shortlist includes stocks with ranking score >=60 and at least one passing setup.
-- The endpoint returns all ranked stocks and the shortlist. Sector-relative-strength scoring remains unavailable until sector/benchmark histories are integrated.
+- The endpoint returns all ranked stocks and the shortlist. Sector-relative-strength scoring uses an equal-weight sector constituent return proxy versus Nifty 50 when at least two sector constituents and benchmark history are available.
 
 This is a manual research pipeline, not a scheduler or trade execution system. It does not guarantee that the latest Yahoo candle is a completed NSE session candle; inspect timestamps and validate source quality. Live orders remain disabled.
 
@@ -76,7 +76,7 @@ This is a manual research pipeline, not a scheduler or trade execution system. I
 - `POST /api/v1/rank` — return an explainable 100-point stock ranking for one symbol.
 - `POST /api/v1/universe/scan` — rank up to 500 supplied symbols and run reversal, VCP-candidate, and momentum scanners for each symbol.
 
-The ranking weights are trend (20), momentum (15), ADX/DI strength (10), relative volume (15), breakout proximity (15), volatility contraction (10), sector relative strength (10), and liquidity (5). Sector relative strength can be supplied as `sector_relative_strength_pct`; if omitted, its 10 points are marked unavailable and score zero. Liquidity is estimated from the last 20 daily close * volume values unless `average_daily_turnover` (INR) is provided explicitly.
+The ranking weights are trend (20), momentum (15), ADX/DI strength (10), relative volume (15), breakout proximity (15), volatility contraction (10), sector relative strength (10), and liquidity (5). Sector relative strength can be supplied as `sector_relative_strength_pct`; the EOD pipeline now calculates it from configured sector constituents versus Nifty 50 over 20 sessions. The calculation is an equal-weight proxy, not an official sector index return. If unavailable, its 10 points are marked unavailable and score zero. Liquidity is estimated from the last 20 daily close * volume values unless `average_daily_turnover` (INR) is provided explicitly.
 
 The batch endpoint accepts one daily OHLCV history per symbol (at least 210 bars), sorts results by ranking score, reports each setup's pass/fail status, and returns per-symbol errors for invalid histories.
 
@@ -144,3 +144,10 @@ This remains a research prototype, not a final performance simulator. Costs are 
 - The EOD pipeline reads stored `^NSEI` history. In a bearish regime it blocks new long candidates from the shortlist; in a sideways regime it raises the shortlist score threshold from 60 to 70. When benchmark history is unavailable, the pipeline clearly reports that the regime filter is unavailable and retains the legacy score threshold.
 - Refresh the benchmark from the dashboard's Market Regime panel before running the EOD scan. The Nifty benchmark ticker is stored as `^NSEI`; the Yahoo adapter maps it directly without adding the NSE equity suffix.
 - This is a transparent heuristic risk filter, not a market forecast. It does not modify individual stock ranking scores or close existing positions. Verify benchmark candle dates/completeness and provider quality; no orders are placed.
+
+
+### Sector strength and rotation
+
+The EOD pipeline calculates 20-session returns for configured universe constituents, groups them by the sector column in `data/universe/nse500.csv`, and compares each sector's equal-weight average return with Nifty 50. Sectors require at least two constituents with usable histories. Sector relative strength (percentage-point outperformance) is passed into the existing 10-point stock ranking component. The dashboard displays the strongest available sectors and their leading constituents after an EOD scan.
+
+This is a constituent-based proxy, not an official sector-index series. It can be biased by incomplete universe membership, missing histories, and asynchronous last candle dates. It is not available until the Nifty benchmark and relevant stock candles are stored. The method does not imply predictive performance; validate it in out-of-sample portfolio backtests before relying on it.
