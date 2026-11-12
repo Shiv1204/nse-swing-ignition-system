@@ -37,6 +37,7 @@ export default function StockDetail({ symbol, onBack }: { symbol: string; onBack
   const [riskPct, setRiskPct] = useState("0.5");
   const [plan, setPlan] = useState<TradePlan | null>(null);
   const [planBusy, setPlanBusy] = useState(false);
+  const [hourlySyncBusy, setHourlySyncBusy] = useState(false);
   const [planError, setPlanError] = useState("");
 
   const load = async () => {
@@ -126,6 +127,16 @@ export default function StockDetail({ symbol, onBack }: { symbol: string; onBack
           <label>Trading capital (₹)<input type="number" min="1" value={capital} onChange={e => setCapital(e.target.value)}/></label>
           <label>Risk per trade (%)<input type="number" min="0.01" max="5" step="0.05" value={riskPct} onChange={e => setRiskPct(e.target.value)}/></label>
           <button className="button primary" onClick={() => void createPlan()} disabled={planBusy || !capital || Number(capital) <= 0 || !riskPct || Number(riskPct) <= 0 || Number(riskPct) > 5}>{planBusy ? <LoaderCircle className="spin" size={15}/> : <TrendingUp size={15}/>} Calculate plan</button>
+          <button className="button secondary" onClick={async () => {
+            setHourlySyncBusy(true); setPlanError("");
+            try {
+              const response = await fetch(`${API}/api/v1/market-data/sync/${encodeURIComponent(symbol)}?timeframe=1h&period=60d`, { method: "POST" });
+              const payload = await response.json();
+              if (!response.ok) throw new Error(payload.detail || "Hourly history sync failed");
+              await createPlan();
+            } catch (e) { setPlanError(e instanceof Error ? e.message : "Hourly history sync failed"); }
+            finally { setHourlySyncBusy(false); }
+          }} disabled={hourlySyncBusy || planBusy}>{hourlySyncBusy ? <LoaderCircle className="spin" size={15}/> : <RefreshCw size={15}/>} Sync 1H candles (60 days)</button>
         </div>
         {planError && <div className="notice error"><CircleAlert size={16}/>{planError}</div>}
         {plan && <div className="trade-plan-result">
